@@ -1,33 +1,28 @@
-[project]
+[tool.poetry]
 name = "QuantumPlayground"
 version = "0.1.0"
 description = "Default template for PDM package"
-authors = [
-    {name = "Arun Kumar Anala", email = "analaarun.k@gmail.com"},
-]
-dependencies = [
-    "pandas>=2.2.0",
-    "numpy>=1.26.0",
-    "qutip>=4.7.0",
-    "ipykernel",
-    "jupyter",
-    "matplotlib",
-    "streamlit>=1.41.1",
-    "plotly>=6.0.0",
-    "openai>=1.62.0",
-    "pyperclip>=1.9.0"
-]
-
-requires-python = "==3.12.*"
+authors = ["Arun Kumar Anala <analaarun.k@gmail.com>"]
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 
-packages = [
-    {include = "quantum_playground"}
-]
+[tool.poetry.dependencies]
+python = "3.12.*"
+pandas = ">=2.2.0"
+numpy = ">=1.26.0"
+qutip = ">=4.7.0"
+ipykernel = "*"
+jupyter = "*"
+matplotlib = "*"
+streamlit = ">=1.41.1"
+plotly = ">=6.0.0"
+openai = ">=1.62.0"
+pyperclip = ">=1.9.0"
 
-[tool.pdm]
-distribution = false
+# If you want to explicitly tell Poetry which folder is your package:
+[tool.poetry.packages]
+include = ["quantum_playground"]
 
-[tool.pdm.build]
-includes = ["quantum_playground"]
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
