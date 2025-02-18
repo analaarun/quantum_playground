@@ -115,20 +115,21 @@ def create_total_hamiltonian_with_rf(
     # Total static Hamiltonian
     H_static = H_nuc_zeeman + H_nuc_quad + H_nuc_dd + H_e_zeeman + H_hf
 
-    # Time-dependent RF drive on the nuclear spins:
-    # H_rf(t) = -hbar * amp_rf * sum_n [ cos(2π nu_rf t)*I_x - sin(2π nu_rf t)*I_y ]
+    # Time-dependent RF drive on both nuclear spins and electron:
+    # H_rf(t) = -hbar * [ cos(2π nu_rf t)*(gamma_n*amp_rf*I_tot_x + gamma_e*amp_rf*S_x) 
+    #                     - sin(2π nu_rf t)*(gamma_n*amp_rf*I_tot_y + gamma_e*amp_rf*S_y) ]
     I_tot_x = sum(ops_n[i]['x'] for i in range(num_nuclei))
     I_tot_y = sum(ops_n[i]['y'] for i in range(num_nuclei))
 
     def coeff_x(t, args):
-        return -hbar * amp_rf * np.cos(2.0 * np.pi * args['nu_rf'] * t)
+        return -hbar * np.cos(2.0 * np.pi * args['nu_rf'] * t)
     def coeff_y(t, args):
-        return +hbar * amp_rf * np.sin(2.0 * np.pi * args['nu_rf'] * t)
+        return +hbar * np.sin(2.0 * np.pi * args['nu_rf'] * t)
 
     H_time_dep = [
         H_static,
-        [I_tot_x, coeff_x],
-        [I_tot_y, coeff_y]
+        [gamma_n * amp_rf * I_tot_x + gamma_e * amp_rf * ops_e['x'], coeff_x],  # Scale by respective gamma
+        [gamma_n * amp_rf * I_tot_y + gamma_e * amp_rf * ops_e['y'], coeff_y]   # Scale by respective gamma
     ]
 
     return H_time_dep, H_static, H_e_zeeman, H_nuc_zeeman
@@ -414,7 +415,17 @@ def evolve_and_plot_time_dep(
                          f"- t_max: {t_max}\n"
                          f"- Number of steps: {num_steps}\n"
                          f"- RF Frequency: {args.get('nu_rf', 'N/A')}\n"
-                         f"- Initial State Index: {state_index}\n",
+                         f"- RF Amplitude: {args.get('amp_rf', 'N/A')}\n"
+                         f"- Initial State Index: {state_index}\n\n"
+                         f"Expectation values at 10 time points:\n"
+                         + "\n".join([
+                             f"t = {times[i]:.2f}:"
+                             + f"\nElectron: ⟨Sz⟩ = {expect(electron_ops['z'], result.states[i]):.3f}"
+                             + "".join([f"\nNucleus {n+1}: ⟨Sz⟩ = {expect(nuclear_ops[n]['z'], result.states[i]):.3f}"
+                                      for n in range(num_nuclei)])
+                             + "\n"
+                             for i in range(0, len(times), len(times)//10)[:10]
+                         ]),
                          height=300,
                          key="plot_explanation")
             if st.button("Copy to Clipboard", key="copy_to_clipboard_button_2"):
@@ -441,7 +452,10 @@ def evolve_and_plot_time_dep(
                     ex = expect(sx_12, rho_spin)
                     ey = expect(sy_12, rho_spin)
                     ez = expect(sz_12, rho_spin)
-                    label = "Electron" if spin_idx == electron_idx else f"Nuclear {spin_idx+1}"
+                    if spin_idx == electron_idx:
+                        label = "Electron"
+                    else:
+                        label = f"Nuclear {spin_idx+1}"
                     st.write(f"**{label}:** ⟨Sx⟩={ex:.3f}, ⟨Sy⟩={ey:.3f}, ⟨Sz⟩={ez:.3f}")
                     fig = plt.figure()
                     b = Bloch(fig=fig)
@@ -526,7 +540,7 @@ with floating_container:
 
 # Sidebar for Hamiltonian parameters
 st.sidebar.subheader("Global Parameters")
-st.session_state.num_nuclei = st.session_state.get('num_nuclei', 3)
+st.session_state.num_nuclei = st.session_state.get('num_nuclei', 1)
 st.session_state.hbar = st.session_state.get('hbar', 1.0)
 st.session_state.Bz = st.session_state.get('Bz', 1.0)
 st.session_state.J_dd = st.session_state.get('J_dd', 0.1)
@@ -537,13 +551,21 @@ st.session_state.amp_rf = st.session_state.get('amp_rf', 0.1)
 # N_nuclei = st.sidebar.number_input("Number of Nuclei", min_value=1, max_value=10, value=5)
 # hilbert_space_dim = 2 * (2 ** N_nuclei)
 
-st.session_state.num_nuclei = st.sidebar.number_input("Number of Nuclei:", 1, 20, st.session_state.num_nuclei, 1)
+st.session_state.num_nuclei = st.sidebar.number_input("Number of Nuclei:", 0, 20, st.session_state.num_nuclei, 1)
 hilbert_space_dim = 2 * (2 ** st.session_state.num_nuclei)
-st.session_state.hbar = st.sidebar.number_input("ħ (reduced Planck constant):", 0.1, 2.0, st.session_state.hbar, 0.1)
-st.session_state.Bz = st.sidebar.number_input("Bz (magnetic field, T):", 0.1, 2.0, st.session_state.Bz, 0.1)
+st.session_state.hbar = st.sidebar.number_input("ħ (reduced Planck constant):", 0.0, 2.0, st.session_state.hbar, 0.1)
+st.session_state.Bz = st.sidebar.number_input("Bz (magnetic field, T):", 0.0, 2.0, st.session_state.Bz, 0.1)
 st.session_state.J_dd = st.sidebar.number_input("J_dd (dipole-dipole coupling):", 0.0, 2.0, st.session_state.J_dd, 0.05)
-st.session_state.nu_rf = st.sidebar.number_input("RF Frequency (MHz):", 0.1, 2.0, st.session_state.nu_rf, 0.1)
-st.session_state.amp_rf = st.sidebar.number_input("RF Amplitude:", 0.0, 1.0, st.session_state.amp_rf, 0.05)
+st.session_state.nu_rf = st.sidebar.number_input("RF Frequency (MHz):", 0.0, 50.0, st.session_state.nu_rf, 0.1)
+st.session_state.amp_rf = st.session_state.get('amp_rf', 0.1)
+# Use the number_input without directly referencing session state in the value parameter
+st.session_state.amp_rf = st.sidebar.number_input(
+    "RF Amplitude:", 
+    min_value=0.0, 
+    max_value=100.0, 
+    value=st.session_state.amp_rf,
+    step=0.05
+)
 
 st.sidebar.subheader("Nuclear Parameters")
 st.session_state.gamma_n = st.session_state.get('gamma_n', 1.0)
@@ -551,14 +573,33 @@ st.session_state.q = st.session_state.get('q', 0.5)
 st.session_state.eta = st.session_state.get('eta', 0.2)
 st.session_state.A_hf = st.session_state.get('A_hf', 0.5)
 
-st.session_state.gamma_n = st.sidebar.number_input("γ_n (nuclear gyromagnetic ratio):", 0.1, 2.0, st.session_state.gamma_n, 0.1)
-st.session_state.q = st.sidebar.number_input("q (quadrupole coupling):", -2.0, 2.0, st.session_state.q, 0.1)
-st.session_state.eta = st.sidebar.number_input("η (quadrupole asymmetry):", -1.0, 1.0, st.session_state.eta, 0.05)
-st.session_state.A_hf = st.sidebar.number_input("A_hf (hyperfine coupling):", 0.0, 10.0, st.session_state.A_hf, 0.1)
+st.sidebar.markdown(
+    "<span style='color:#4CAF50;font-weight:bold;'>γ_n (nuclear gyromagnetic ratio):</span>",
+    unsafe_allow_html=True
+)
+st.session_state.gamma_n = st.sidebar.number_input(
+    "γ_n", 
+    0.0, 2.0, st.session_state.gamma_n, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
+)
+
+st.sidebar.markdown("<span style='color:#4CAF50;font-weight:bold;'>q (quadrupole coupling):</span>", unsafe_allow_html=True)
+st.session_state.q = st.sidebar.number_input("q:", -2.0, 2.0, st.session_state.q, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed")
+
+st.sidebar.markdown(
+    "<span style='color:#4CAF50;font-weight:bold;'>η (quadrupole asymmetry):</span>",
+    unsafe_allow_html=True
+)
+st.session_state.eta = st.sidebar.number_input(
+    "η (quadrupole asymmetry):", 
+    -1.0, 1.0, st.session_state.eta, 0.05, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
+)
+
+st.sidebar.markdown("<span style='color:#4CAF50;font-weight:bold;'>A_hf (hyperfine coupling):</span>", unsafe_allow_html=True)
+st.session_state.A_hf = st.sidebar.number_input("A_hf (hyperfine coupling)", 0.0, 100.0, st.session_state.A_hf, 0.1, label_visibility="collapsed")
 
 st.sidebar.subheader("Electron Parameters")
 st.session_state.gamma_e = st.session_state.get('gamma_e', 28.0)
-st.session_state.gamma_e = st.sidebar.number_input("γ_e (electron gyromagnetic ratio):", 1.0, 50.0, st.session_state.gamma_e, 0.1)
+st.session_state.gamma_e = st.sidebar.number_input("γ_e (electron gyromagnetic ratio):", 0.0, 50.0, st.session_state.gamma_e, 0.1)
 
 # New: Decoherence options
 st.sidebar.subheader("Decoherence Options")
@@ -588,18 +629,16 @@ if 'hamiltonians' not in st.session_state:
         'H_e_zeeman': None,
         'H_nuc_zeeman': None
     }
-
-if st.sidebar.button("Apply Parameters"):
-    (st.session_state.hamiltonians['H_td'], 
-     st.session_state.hamiltonians['H_static'],
-     st.session_state.hamiltonians['H_e_zeeman'],
-     st.session_state.hamiltonians['H_nuc_zeeman']) = create_total_hamiltonian_with_rf(
-        num_nuclei=num_nuclei, Bz=Bz, gamma_e=gamma_e, J_dd=J_dd, hbar=hbar,
-        nu_rf=nu_rf, amp_rf=amp_rf, gamma_n=gamma_n, q=q, eta=eta, A_hf=A_hf
-    )
+(st.session_state.hamiltonians['H_td'], 
+ st.session_state.hamiltonians['H_static'],
+ st.session_state.hamiltonians['H_e_zeeman'],
+ st.session_state.hamiltonians['H_nuc_zeeman']) = create_total_hamiltonian_with_rf(
+    num_nuclei=num_nuclei, Bz=Bz, gamma_e=gamma_e, J_dd=J_dd, hbar=hbar,
+    nu_rf=nu_rf, amp_rf=amp_rf, gamma_n=gamma_n, q=q, eta=eta, A_hf=A_hf
+)
 
 if st.session_state.hamiltonians['H_static'] is None:
-    st.warning("Please click 'Apply Parameters' to initialize the Hamiltonian.")
+    st.warning("Hamiltonian initialization failed.")
     st.stop()
 
 H_td = st.session_state.hamiltonians['H_td']
@@ -649,26 +688,90 @@ fig_energy = plot_energy_levels(eigenvals_sorted_rounded, incremental_changes_ro
 st.plotly_chart(fig_energy, use_container_width=True)
 
 with st.expander("Plot and Calculation Context"):
+    # Calculate expectation values for each eigenstate
+    sx = sigmax()/2
+    sy = sigmay()/2
+    sz = sigmaz()/2
+    
+    # Embed operators for all spins (nuclei and electron)
+    electron_idx = num_nuclei  # electron is the last qubit
+    
+    # Create embedded operators for each nucleus and the electron
+    nuclear_ops = []
+    for i in range(num_nuclei):
+        nuclear_ops.append({
+            'x': embed_operator(sx, i, num_nuclei + 1),
+            'y': embed_operator(sy, i, num_nuclei + 1),
+            'z': embed_operator(sz, i, num_nuclei + 1)
+        })
+    
+    electron_ops = {
+        'x': embed_operator(sx, electron_idx, num_nuclei + 1),
+        'y': embed_operator(sy, electron_idx, num_nuclei + 1),
+        'z': embed_operator(sz, electron_idx, num_nuclei + 1)
+    }
+    
+    # Calculate expectation values for each state
+    state_expectations = []
+    for idx, state in enumerate(eigenstates):
+        # Calculate nuclear expectations
+        nuclear_expects = []
+        for i in range(num_nuclei):
+            ex = expect(nuclear_ops[i]['x'], state)
+            ey = expect(nuclear_ops[i]['y'], state)
+            ez = expect(nuclear_ops[i]['z'], state)
+            nuclear_expects.append((ex, ey, ez))
+        
+        # Calculate electron expectations
+        ex_e = expect(electron_ops['x'], state)
+        ey_e = expect(electron_ops['y'], state)
+        ez_e = expect(electron_ops['z'], state)
+        
+        state_expectations.append({
+            'nuclear': nuclear_expects,
+            'electron': (ex_e, ey_e, ez_e)
+        })
+    
     context_text = f"""
     Plot Context: Sorted Energy Levels ({num_nuclei} nuclei + 1 electron)
-    State Indices: {', '.join(map(str, list(range(len(eigenvals_sorted_rounded)))) )}
-    Energy Levels (MHz): {', '.join(map(str, eigenvals_sorted_rounded))}
-    Incremental Changes (MHz): {', '.join(map(str, incremental_changes_rounded))}
-    Energy Differences from Ground State (MHz): {', '.join(map(str, energy_diffs_rounded))}
-
+    
+    State Indices: 
+    {', '.join(map(str, range(len(eigenvals_sorted_rounded))))}
+    
+    Energy Levels (MHz): 
+    {', '.join(map(str, eigenvals_sorted_rounded))}
+    
+    Incremental Changes (MHz): 
+    {', '.join(map(str, incremental_changes_rounded))}
+    
+    Energy Differences from Ground State (MHz): 
+    {', '.join(map(str, energy_diffs_rounded))}
+    
+    Detailed State Information:
+    {'\n'.join(
+        f"State {idx}: Energy = {energy:.3f} MHz\n"
+        f"  Electron: ⟨Sx,Sy,Sz⟩ = ({exp['electron'][0]:.3f}, {exp['electron'][1]:.3f}, {exp['electron'][2]:.3f})\n"
+        + '\n'.join(
+            f"  Nucleus {n+1}: ⟨Sx,Sy,Sz⟩ = ({exp['nuclear'][n][0]:.3f}, {exp['nuclear'][n][1]:.3f}, {exp['nuclear'][n][2]:.3f})"
+            for n in range(num_nuclei)
+        )
+        for idx, (energy, exp) in enumerate(zip(eigenvals_sorted_rounded, state_expectations))
+    )}
+    
     Hamiltonian Input Data:
     - Number of Nuclei: {num_nuclei}
-    - Bz: {Bz} T
-    - γ_e: {gamma_e} MHz/T
-    - J_dd: {J_dd} MHz
-    - ħ: {hbar}
-    - ν_rf: {nu_rf} MHz
-    - RF Amplitude: {amp_rf}
-    - γ_n: {gamma_n} MHz/T
-    - q: {q}
-    - η: {eta}
-    - A_hf: {A_hf} MHz
+    - Magnetic Field (Bz): {Bz} T
+    - Electron Gyromagnetic Ratio (gamma_e): {gamma_e} MHz/T
+    - Dipole-Dipole Coupling (J_dd): {J_dd} MHz
+    - Reduced Planck Constant (hbar): {hbar}
+    - RF Frequency (nu_rf): {nu_rf} MHz
+    - RF Amplitude (amp_rf): {amp_rf}
+    - Nuclear Gyromagnetic Ratio (gamma_n): {gamma_n} MHz/T
+    - Quadrupole Coupling (q): {q}
+    - Quadrupole Asymmetry (eta): {eta}
+    - Hyperfine Coupling (A_hf): {A_hf} MHz
     """
+    
     user_prompt = st.text_area(
         "Context",
         value=context_text,
@@ -745,313 +848,318 @@ def plot_energy_levels_with_parameters(H_static, Bz, A_hf, J_dd, gamma_e, gamma_
     )
     return fig
 
-st.subheader("Interactive Energy Levels")
-DEFAULT_VALUES = {
-    'Bz': 1.0,
-    'A_hf': 0.5,
-    'J_dd': 0.1,
-    'gamma_e': 28.0,
-    'gamma_n': 1.0,
-    'nu_rf': 1.0
-}
+show_interactive_energy_levels = st.sidebar.checkbox("Show Interactive Energy Levels", value=False)
 
-if st.button("Reset to Default Values"):
-    st.session_state.reset_sliders = True
-else:
-    st.session_state.reset_sliders = False
+if show_interactive_energy_levels:
+    st.subheader("Interactive Energy Levels")
+    DEFAULT_VALUES = {
+        'Bz': 1.0,
+        'A_hf': 0.5,
+        'J_dd': 0.1,
+        'gamma_e': 28.0,
+        'gamma_n': 1.0,
+        'nu_rf': 1.0
+    }
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    Bz_value = st.slider(
-        "Magnetic Field (Bz) [T]", 
-        min_value=0.0, 
-        max_value=10.0, 
-        value=DEFAULT_VALUES['Bz'] if st.session_state.get('reset_sliders', False) else st.session_state.get('Bz_value', DEFAULT_VALUES['Bz']),
-        step=2.0,
-        key='Bz_value'
-    )
-with col2:
-    A_hf_value = st.slider(
-        "Hyperfine Coupling (A_hf) [MHz]", 
-        min_value=0.0, 
-        max_value=2.0, 
-        value=DEFAULT_VALUES['A_hf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('A_hf_value', DEFAULT_VALUES['A_hf']),
-        step=0.5,
-        key='A_hf_value'
-    )
-with col3:
-    J_dd_value = st.slider(
-        "Dipole-Dipole Coupling (J_dd) [MHz]", 
-        min_value=0.0, 
-        max_value=2.0, 
-        value=DEFAULT_VALUES['J_dd'] if st.session_state.get('reset_sliders', False) else st.session_state.get('J_dd_value', DEFAULT_VALUES['J_dd']),
-        step=0.5,
-        key='J_dd_value'
-    )
-
-col4, col5, col6 = st.columns(3)
-with col4:
-    gamma_e_value = st.slider(
-        "Electron Gyromagnetic Ratio (γ_e) [MHz/T]", 
-        min_value=0.0, 
-        max_value=50.0, 
-        value=DEFAULT_VALUES['gamma_e'] if st.session_state.get('reset_sliders', False) else st.session_state.get('gamma_e_value', DEFAULT_VALUES['gamma_e']),
-        step=10.0,
-        key='gamma_e_value'
-    )
-with col5:
-    gamma_n_value = st.slider(
-        "Nuclear Gyromagnetic Ratio (γ_n) [MHz/T]", 
-        min_value=0.0, 
-        max_value=2.0, 
-        value=DEFAULT_VALUES['gamma_n'] if st.session_state.get('reset_sliders', False) else st.session_state.get('gamma_n_value', DEFAULT_VALUES['gamma_n']),
-        step=0.5,
-        key='gamma_n_value'
-    )
-with col6:
-    nu_rf_value = st.slider(
-        "RF Frequency (ν_rf) [MHz]", 
-        min_value=0.0, 
-        max_value=2.0, 
-        value=DEFAULT_VALUES['nu_rf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('nu_rf_value', DEFAULT_VALUES['nu_rf']),
-        step=0.5,
-        key='nu_rf_value'
-    )
-
-fig_interactive = plot_energy_levels_with_parameters(
-    H_static, 
-    Bz_value, 
-    A_hf_value, 
-    J_dd_value,
-    gamma_e_value,
-    gamma_n_value,
-    nu_rf_value
-)
-st.plotly_chart(fig_interactive, use_container_width=True)
-
-# Energy Levels Animation section
-st.subheader("Energy Levels Animation")
-st.write("### Set Initial Parameters for Animation")
-col1, col2 = st.columns(2)
-with col1:
-    param_to_animate = st.selectbox(
-        "Select parameter to animate:",
-        ["Magnetic Field (Bz)", "Hyperfine Coupling (A_hf)", "Dipole-Dipole Coupling (J_dd)",
-         "Electron Gyromagnetic Ratio (γ_e)", "Nuclear Gyromagnetic Ratio (γ_n)"]
-    )
-    if param_to_animate == "Magnetic Field (Bz)":
-        default_start, default_end = 0.0, 10.0
-    elif param_to_animate == "Electron Gyromagnetic Ratio (γ_e)":
-        default_start, default_end = 0.0, 50.0
+    if st.button("Reset to Default Values"):
+        st.session_state.reset_sliders = True
     else:
-        default_start, default_end = 0.0, 2.0
-    start_val = st.number_input("Start value", value=default_start, step=0.1)
-    end_val = st.number_input("End value", value=default_end, step=0.1)
-    num_steps = st.number_input("Number of steps", value=20, min_value=5, max_value=50, step=5)
-with col2:
-    st.write("Set initial values for other parameters:")
-    init_Bz = st.slider("Initial Bz [T]", 0.0, 10.0, Bz_value, 2.0, disabled=param_to_animate=="Magnetic Field (Bz)")
-    init_A_hf = st.slider("Initial A_hf [MHz]", 0.0, 2.0, A_hf_value, 0.5, disabled=param_to_animate=="Hyperfine Coupling (A_hf)")
-    init_J_dd = st.slider("Initial J_dd [MHz]", 0.0, 2.0, J_dd_value, 0.5, disabled=param_to_animate=="Dipole-Dipole Coupling (J_dd)")
-    init_gamma_e = st.slider("Initial γ_e [MHz/T]", 0.0, 50.0, gamma_e_value, 10.0, disabled=param_to_animate=="Electron Gyromagnetic Ratio (γ_e)")
-    init_gamma_n = st.slider("Initial γ_n [MHz/T]", 0.0, 2.0, gamma_n_value, 0.5, disabled=param_to_animate=="Nuclear Gyromagnetic Ratio (γ_n)")
+        st.session_state.reset_sliders = False
 
-def generate_animation_frames(param_name, start, end, steps, init_params):
-    frames = []
-    param_values = np.linspace(start, end, steps)
-    min_energy = float('inf')
-    max_energy = float('-inf')
-    
-    # First pass to determine global energy range
-    for val in param_values:
-        if param_name == "Magnetic Field (Bz)":
-            current_Bz, current_A_hf, current_J_dd = val, init_params['A_hf'], init_params['J_dd']
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
-        elif param_name == "Hyperfine Coupling (A_hf)":
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], val, init_params['J_dd']
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
-        elif param_name == "Dipole-Dipole Coupling (J_dd)":
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], val
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
-        elif param_name == "Electron Gyromagnetic Ratio (γ_e)":
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
-            current_gamma_e, current_gamma_n = val, init_params['gamma_n']
-        else:  # Nuclear Gyromagnetic Ratio (γ_n)
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], val
-        
-        _, H_static_updated, _, _ = create_total_hamiltonian_with_rf(
-            num_nuclei, 
-            Bz=current_Bz, 
-            gamma_e=current_gamma_e, 
-            J_dd=current_J_dd, 
-            hbar=hbar, 
-            nu_rf=nu_rf_value, 
-            amp_rf=amp_rf, 
-            gamma_n=init_params['gamma_n'], 
-            q=q, 
-            eta=eta, 
-            A_hf=current_A_hf
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        Bz_value = st.slider(
+            "Magnetic Field (Bz) [T]", 
+            min_value=0.0, 
+            max_value=10.0, 
+            value=DEFAULT_VALUES['Bz'] if st.session_state.get('reset_sliders', False) else st.session_state.get('Bz_value', DEFAULT_VALUES['Bz']),
+            step=2.0,
+            key='Bz_value'
         )
-        eigenvals = H_static_updated.eigenenergies()
-        min_energy = min(min_energy, np.min(eigenvals))
-        max_energy = max(max_energy, np.max(eigenvals))
-        
-    energy_range = max_energy - min_energy
-    min_energy -= 0.1 * energy_range
-    max_energy += 0.1 * energy_range
+    with col2:
+        A_hf_value = st.slider(
+            "Hyperfine Coupling (A_hf) [MHz]", 
+            min_value=0.0, 
+            max_value=2.0, 
+            value=DEFAULT_VALUES['A_hf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('A_hf_value', DEFAULT_VALUES['A_hf']),
+            step=0.5,
+            key='A_hf_value'
+        )
+    with col3:
+        J_dd_value = st.slider(
+            "Dipole-Dipole Coupling (J_dd) [MHz]", 
+            min_value=0.0, 
+            max_value=2.0, 
+            value=DEFAULT_VALUES['J_dd'] if st.session_state.get('reset_sliders', False) else st.session_state.get('J_dd_value', DEFAULT_VALUES['J_dd']),
+            step=0.5,
+            key='J_dd_value'
+        )
 
-    for val in param_values:
-        if param_name == "Magnetic Field (Bz)":
-            current_Bz, current_A_hf, current_J_dd = val, init_params['A_hf'], init_params['J_dd']
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
-        elif param_name == "Hyperfine Coupling (A_hf)":
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], val, init_params['J_dd']
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
-        elif param_name == "Dipole-Dipole Coupling (J_dd)":
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], val
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
-        elif param_name == "Electron Gyromagnetic Ratio (γ_e)":
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
-            current_gamma_e, current_gamma_n = val, init_params['gamma_n']
-        else:  # Nuclear Gyromagnetic Ratio (γ_n)
-            current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
-            current_gamma_e, current_gamma_n = init_params['gamma_e'], val
-        
-        _, H_static_updated, _, _ = create_total_hamiltonian_with_rf(
-            num_nuclei, 
-            Bz=current_Bz, 
-            gamma_e=current_gamma_e, 
-            J_dd=current_J_dd, 
-            hbar=hbar, 
-            nu_rf=nu_rf_value, 
-            amp_rf=amp_rf, 
-            gamma_n=init_params['gamma_n'], 
-            q=q, 
-            eta=eta, 
-            A_hf=current_A_hf
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        gamma_e_value = st.slider(
+            "Electron Gyromagnetic Ratio (γ_e) [MHz/T]", 
+            min_value=0.0, 
+            max_value=50.0, 
+            value=DEFAULT_VALUES['gamma_e'] if st.session_state.get('reset_sliders', False) else st.session_state.get('gamma_e_value', DEFAULT_VALUES['gamma_e']),
+            step=10.0,
+            key='gamma_e_value'
         )
-        eigenvals = H_static_updated.eigenenergies()
-        eigenvals_sorted = np.sort(eigenvals)
-        eigenvals_sorted_rounded = np.round(eigenvals_sorted, 2)
-        
-        param_label = {
-            "Magnetic Field (Bz)": f"Bz = {val:.2f} T",
-            "Hyperfine Coupling (A_hf)": f"A_hf = {val:.2f} MHz",
-            "Dipole-Dipole Coupling (J_dd)": f"J_dd = {val:.2f} MHz",
-            "Electron Gyromagnetic Ratio (γ_e)": f"γ_e = {val:.2f} MHz/T",
-            "Nuclear Gyromagnetic Ratio (γ_n)": f"γ_n = {val:.2f} MHz/T"
-        }[param_name]
-        
-        frames.append(go.Frame(
-            data=[go.Scatter(
-                x=list(range(len(eigenvals_sorted_rounded))),
-                y=eigenvals_sorted_rounded,
-                mode='lines+markers+text',
-                text=[f'{v:.2f}' for v in eigenvals_sorted_rounded],
-                textposition='top center',
-                name=param_label,
-                hovertemplate=(
-                    'State: %{x}<br>'
-                    'Energy: %{y:.2f} MHz<br>'
-                    f'Bz = {current_Bz:.2f} T<br>'
-                    f'A_hf = {current_A_hf:.2f} MHz<br>'
-                    f'J_dd = {current_J_dd:.2f} MHz<br>'
-                    f'γ_e = {current_gamma_e:.2f} MHz/T<br>'
-                    f'γ_n = {current_gamma_n:.2f} MHz/T'
-                ),
-                textfont=dict(size=10)
-            )],
-            name=str(val)
-        ))
-    return frames, param_values, min_energy, max_energy
+    with col5:
+        gamma_n_value = st.slider(
+            "Nuclear Gyromagnetic Ratio (γ_n) [MHz/T]", 
+            min_value=0.0, 
+            max_value=2.0, 
+            value=DEFAULT_VALUES['gamma_n'] if st.session_state.get('reset_sliders', False) else st.session_state.get('gamma_n_value', DEFAULT_VALUES['gamma_n']),
+            step=0.5,
+            key='gamma_n_value'
+        )
+    with col6:
+        nu_rf_value = st.slider(
+            "RF Frequency (ν_rf) [MHz]", 
+            min_value=0.0, 
+            max_value=2.0, 
+            value=DEFAULT_VALUES['nu_rf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('nu_rf_value', DEFAULT_VALUES['nu_rf']),
+            step=0.5,
+            key='nu_rf_value'
+        )
 
-if st.button("Generate Animation"):
-    with st.spinner("Generating animation..."):
-        init_params = {
-            'Bz': init_Bz,
-            'A_hf': init_A_hf,
-            'J_dd': init_J_dd,
-            'gamma_e': init_gamma_e,
-            'gamma_n': init_gamma_n
-        }
-        frames, param_values, min_energy, max_energy = generate_animation_frames(
-            param_to_animate, start_val, end_val, num_steps, init_params
+    fig_interactive = plot_energy_levels_with_parameters(
+        H_static, 
+        Bz_value, 
+        A_hf_value, 
+        J_dd_value,
+        gamma_e_value,
+        gamma_n_value,
+        nu_rf_value
+    )
+    st.plotly_chart(fig_interactive, use_container_width=True)
+
+    # Ensure the initial values for sliders are set correctly
+
+    # Energy Levels Animation section
+    st.subheader("Energy Levels Animation")
+    st.write("### Set Initial Parameters for Animation")
+    col1, col2 = st.columns(2)
+    with col1:
+        param_to_animate = st.selectbox(
+            "Select parameter to animate:",
+            ["Magnetic Field (Bz)", "Hyperfine Coupling (A_hf)", "Dipole-Dipole Coupling (J_dd)",
+            "Electron Gyromagnetic Ratio (γ_e)", "Nuclear Gyromagnetic Ratio (γ_n)"]
         )
-        fig = go.Figure(
-            data=[frames[0].data[0]],
-            layout=go.Layout(
-                title=f"Energy Levels vs {param_to_animate}",
-                xaxis=dict(title="State Index"),
-                yaxis=dict(
-                    title="Energy (MHz)",
-                    range=[min_energy, max_energy],
-                    showgrid=True,
-                    zeroline=True,
-                    showline=True,
-                    showticklabels=True,
-                    fixedrange=True
-                ),
-                updatemenus=[dict(
-                    type="buttons",
-                    showactive=False,
-                    buttons=[dict(
-                        label="Play",
-                        method="animate",
-                        args=[None, dict(
-                            frame=dict(duration=1000, redraw=True),
-                            fromcurrent=True,
-                            mode="immediate",
-                            transition=dict(duration=500)
-                        )]
+        if param_to_animate == "Magnetic Field (Bz)":
+            default_start, default_end = 0.0, 10.0
+        elif param_to_animate == "Electron Gyromagnetic Ratio (γ_e)":
+            default_start, default_end = 0.0, 50.0
+        else:
+            default_start, default_end = 0.0, 2.0
+        start_val = st.number_input("Start value", value=default_start, step=0.1)
+        end_val = st.number_input("End value", value=default_end, step=0.1)
+        num_steps = st.number_input("Number of steps", value=20, min_value=5, max_value=50, step=5)
+    with col2:
+        st.write("Set initial values for other parameters:")
+        init_Bz = st.slider("Initial Bz [T]", 0.0, 10.0, Bz_value, 2.0, disabled=param_to_animate=="Magnetic Field (Bz)")
+        init_A_hf = st.slider("Initial A_hf [MHz]", 0.0, 2.0, A_hf_value, 0.5, disabled=param_to_animate=="Hyperfine Coupling (A_hf)")
+        init_J_dd = st.slider("Initial J_dd [MHz]", 0.0, 2.0, J_dd_value, 0.5, disabled=param_to_animate=="Dipole-Dipole Coupling (J_dd)")
+        init_gamma_e = st.slider("Initial γ_e [MHz/T]", 0.0, 50.0, gamma_e_value, 10.0, disabled=param_to_animate=="Electron Gyromagnetic Ratio (γ_e)")
+        init_gamma_n = st.slider("Initial γ_n [MHz/T]", 0.0, 2.0, gamma_n_value, 0.5, disabled=param_to_animate=="Nuclear Gyromagnetic Ratio (γ_n)")
+
+    def generate_animation_frames(param_name, start, end, steps, init_params):
+        frames = []
+        param_values = np.linspace(start, end, steps)
+        min_energy = float('inf')
+        max_energy = float('-inf')
+        
+        # First pass to determine global energy range
+        for val in param_values:
+            if param_name == "Magnetic Field (Bz)":
+                current_Bz, current_A_hf, current_J_dd = val, init_params['A_hf'], init_params['J_dd']
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
+            elif param_name == "Hyperfine Coupling (A_hf)":
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], val, init_params['J_dd']
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
+            elif param_name == "Dipole-Dipole Coupling (J_dd)":
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], val
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
+            elif param_name == "Electron Gyromagnetic Ratio (γ_e)":
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
+                current_gamma_e, current_gamma_n = val, init_params['gamma_n']
+            else:  # Nuclear Gyromagnetic Ratio (γ_n)
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], val
+            
+            _, H_static_updated, _, _ = create_total_hamiltonian_with_rf(
+                num_nuclei, 
+                Bz=current_Bz, 
+                gamma_e=current_gamma_e, 
+                J_dd=current_J_dd, 
+                hbar=hbar, 
+                nu_rf=nu_rf_value, 
+                amp_rf=amp_rf, 
+                gamma_n=init_params['gamma_n'], 
+                q=q, 
+                eta=eta, 
+                A_hf=current_A_hf
+            )
+            eigenvals = H_static_updated.eigenenergies()
+            min_energy = min(min_energy, np.min(eigenvals))
+            max_energy = max(max_energy, np.max(eigenvals))
+            
+        energy_range = max_energy - min_energy
+        min_energy -= 0.1 * energy_range
+        max_energy += 0.1 * energy_range
+
+        for val in param_values:
+            if param_name == "Magnetic Field (Bz)":
+                current_Bz, current_A_hf, current_J_dd = val, init_params['A_hf'], init_params['J_dd']
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
+            elif param_name == "Hyperfine Coupling (A_hf)":
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], val, init_params['J_dd']
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
+            elif param_name == "Dipole-Dipole Coupling (J_dd)":
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], val
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], init_params['gamma_n']
+            elif param_name == "Electron Gyromagnetic Ratio (γ_e)":
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
+                current_gamma_e, current_gamma_n = val, init_params['gamma_n']
+            else:  # Nuclear Gyromagnetic Ratio (γ_n)
+                current_Bz, current_A_hf, current_J_dd = init_params['Bz'], init_params['A_hf'], init_params['J_dd']
+                current_gamma_e, current_gamma_n = init_params['gamma_e'], val
+            
+            _, H_static_updated, _, _ = create_total_hamiltonian_with_rf(
+                num_nuclei, 
+                Bz=current_Bz, 
+                gamma_e=current_gamma_e, 
+                J_dd=current_J_dd, 
+                hbar=hbar, 
+                nu_rf=nu_rf_value, 
+                amp_rf=amp_rf, 
+                gamma_n=init_params['gamma_n'], 
+                q=q, 
+                eta=eta, 
+                A_hf=current_A_hf
+            )
+            eigenvals = H_static_updated.eigenenergies()
+            eigenvals_sorted = np.sort(eigenvals)
+            eigenvals_sorted_rounded = np.round(eigenvals_sorted, 2)
+            
+            param_label = {
+                "Magnetic Field (Bz)": f"Bz = {val:.2f} T",
+                "Hyperfine Coupling (A_hf)": f"A_hf = {val:.2f} MHz",
+                "Dipole-Dipole Coupling (J_dd)": f"J_dd = {val:.2f} MHz",
+                "Electron Gyromagnetic Ratio (γ_e)": f"γ_e = {val:.2f} MHz/T",
+                "Nuclear Gyromagnetic Ratio (γ_n)": f"γ_n = {val:.2f} MHz/T"
+            }[param_name]
+            
+            frames.append(go.Frame(
+                data=[go.Scatter(
+                    x=list(range(len(eigenvals_sorted_rounded))),
+                    y=eigenvals_sorted_rounded,
+                    mode='lines+markers+text',
+                    text=[f'{v:.2f}' for v in eigenvals_sorted_rounded],
+                    textposition='top center',
+                    name=param_label,
+                    hovertemplate=(
+                        'State: %{x}<br>'
+                        'Energy: %{y:.2f} MHz<br>'
+                        f'Bz = {current_Bz:.2f} T<br>'
+                        f'A_hf = {current_A_hf:.2f} MHz<br>'
+                        f'J_dd = {current_J_dd:.2f} MHz<br>'
+                        f'γ_e = {current_gamma_e:.2f} MHz/T<br>'
+                        f'γ_n = {current_gamma_n:.2f} MHz/T'
                     ),
-                    dict(
-                        label="Pause",
-                        method="animate",
-                        args=[[None], dict(
-                            frame=dict(duration=0, redraw=False),
-                            mode="immediate"
-                        )]
-                    )]
+                    textfont=dict(size=10)
                 )],
-                sliders=[dict(
-                    currentvalue=dict(
-                        font=dict(size=12),
-                        prefix=f"{param_to_animate} = ",
-                        suffix={
-                            "Magnetic Field (Bz)": " T",
-                            "Hyperfine Coupling (A_hf)": " MHz",
-                            "Dipole-Dipole Coupling (J_dd)": " MHz",
-                            "Electron Gyromagnetic Ratio (γ_e)": " MHz/T",
-                            "Nuclear Gyromagnetic Ratio (γ_n)": " MHz/T"
-                        }[param_to_animate],
-                        visible=True,
-                        xanchor="right"
+                name=str(val)
+            ))
+        return frames, param_values, min_energy, max_energy
+
+    if st.button("Generate Animation"):
+        with st.spinner("Generating animation..."):
+            init_params = {
+                'Bz': init_Bz,
+                'A_hf': init_A_hf,
+                'J_dd': init_J_dd,
+                'gamma_e': init_gamma_e,
+                'gamma_n': init_gamma_n
+            }
+            frames, param_values, min_energy, max_energy = generate_animation_frames(
+                param_to_animate, start_val, end_val, num_steps, init_params
+            )
+            fig = go.Figure(
+                data=[frames[0].data[0]],
+                layout=go.Layout(
+                    title=f"Energy Levels vs {param_to_animate}",
+                    xaxis=dict(title="State Index"),
+                    yaxis=dict(
+                        title="Energy (MHz)",
+                        range=[min_energy, max_energy],
+                        showgrid=True,
+                        zeroline=True,
+                        showline=True,
+                        showticklabels=True,
+                        fixedrange=True
                     ),
-                    transition=dict(duration=500),
-                    steps=[dict(
-                        args=[[f"{val}"], dict(
-                            frame=dict(duration=1000, redraw=False),
-                            mode="immediate",
-                            transition=dict(duration=500)
-                        )],
-                        label=f"{val:.2f}",
-                        method="animate"
-                    ) for val in param_values]
-                )],
-                showlegend=False
-            ),
-            frames=frames
-        )
-        fig.update_layout(
-            height=600,
-            hovermode='closest',
-            margin=dict(t=100, b=50),
-            transition=dict(duration=500, easing="linear"),
-            xaxis=dict(showgrid=True, zeroline=True, showline=True, showticklabels=True),
-            yaxis_range=[min_energy, max_energy]
-        )
-        st.plotly_chart(fig, use_container_width=True)
+                    updatemenus=[dict(
+                        type="buttons",
+                        showactive=False,
+                        buttons=[dict(
+                            label="Play",
+                            method="animate",
+                            args=[None, dict(
+                                frame=dict(duration=1000, redraw=True),
+                                fromcurrent=True,
+                                mode="immediate",
+                                transition=dict(duration=500)
+                            )]
+                        ),
+                        dict(
+                            label="Pause",
+                            method="animate",
+                            args=[[None], dict(
+                                frame=dict(duration=0, redraw=False),
+                                mode="immediate"
+                            )]
+                        )]
+                    )],
+                    sliders=[dict(
+                        currentvalue=dict(
+                            font=dict(size=12),
+                            prefix=f"{param_to_animate} = ",
+                            suffix={
+                                "Magnetic Field (Bz)": " T",
+                                "Hyperfine Coupling (A_hf)": " MHz",
+                                "Dipole-Dipole Coupling (J_dd)": " MHz",
+                                "Electron Gyromagnetic Ratio (γ_e)": " MHz/T",
+                                "Nuclear Gyromagnetic Ratio (γ_n)": " MHz/T"
+                            }[param_to_animate],
+                            visible=True,
+                            xanchor="right"
+                        ),
+                        transition=dict(duration=500),
+                        steps=[dict(
+                            args=[[f"{val}"], dict(
+                                frame=dict(duration=1000, redraw=False),
+                                mode="immediate",
+                                transition=dict(duration=500)
+                            )],
+                            label=f"{val:.2f}",
+                            method="animate"
+                        ) for val in param_values]
+                    )],
+                    showlegend=False
+                ),
+                frames=frames
+            )
+            fig.update_layout(
+                height=600,
+                hovermode='closest',
+                margin=dict(t=100, b=50),
+                transition=dict(duration=500, easing="linear"),
+                xaxis=dict(showgrid=True, zeroline=True, showline=True, showticklabels=True),
+                yaxis_range=[min_energy, max_energy]
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
 # Time Evolution Section
 time_evolution_custom = st.sidebar.checkbox("Time Evolution Custom")
@@ -1066,15 +1174,15 @@ if time_evolution_custom:
     )
     observable_name = st.sidebar.selectbox(
         "Observable Name:", 
-        ["system"] + [f"nuclear_{i+1}" for i in range(num_nuclei)] + ["electron_only", "multi_view"], 
+        ["multi_view", "electron_only"] + ["system"] + [f"nuclear_{i+1}" for i in range(num_nuclei)] , 
         index=0,
         key="observable_custom"
     )
-    t_max = st.sidebar.number_input("Total Time (arbitrary units):", 1.0, 50.0, 10.0, 1.0, key="t_max_custom")
+    t_max = st.sidebar.number_input("Total Time (arbitrary units):", 1.0, 1000.0, 10.0, 1.0, key="t_max_custom")
     num_steps = st.sidebar.number_input("Number of Time Steps:", 10, 1000, 200, 10, key="num_steps_custom")
     times_for_bloch = st.sidebar.text_input("Times for Bloch Spheres (comma-separated):", "0, 5, 10", key="times_bloch_custom")
     times_for_bloch = [float(t) for t in times_for_bloch.split(",")]
-    nu_rf_custom = st.sidebar.number_input("RF Frequency (MHz):", 0.0, 30.0, 2.0, 0.1, key="nu_rf_custom")
+    nu_rf_custom = st.sidebar.number_input("RF Frequency (MHz):", -100.0, 100.0, 2.0, 0.1, key="nu_rf_custom")
     
     # Define collapse operators if decoherence is included
     collapse_ops = []
@@ -1097,7 +1205,8 @@ if time_evolution_custom:
         num_steps=num_steps,
         observable_name=observable_name,
         times_for_bloch=times_for_bloch,
-        args={"nu_rf": nu_rf_custom},
+        args={"nu_rf": nu_rf_custom, "amp_rf": amp_rf},
         include_decoherence=include_decoherence,
         collapse_ops=collapse_ops
     )
+    
