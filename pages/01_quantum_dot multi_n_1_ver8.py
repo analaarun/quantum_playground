@@ -349,6 +349,15 @@ def evolve_and_plot_time_dep(
                         "args": [[None], {"frame": {"duration": 0, "redraw": False}, "mode": "immediate"}],
                         "label": "Pause",
                         "method": "animate"
+                    },
+                    {
+                        "args": [["frame0"], {
+                            "frame": {"duration": 0, "redraw": True},
+                            "mode": "immediate",
+                            "transition": {"duration": 0}
+                        }],
+                        "label": "Reset",
+                        "method": "animate"
                     }
                 ],
                 "direction": "left",
@@ -398,19 +407,19 @@ def evolve_and_plot_time_dep(
             fig.update_xaxes(title_text="Time (arbitrary units)")
             fig.update_yaxes(title_text=f"⟨{observable_name}⟩")
         st.plotly_chart(fig)
-        st.write("### Plot Explanation")
-        plot_explanation = st.text_area("Plot Explanation", 
-                     f"This shows the time evolution of the observable ⟨{observable_name}⟩ over time.\n\n"
-                     f"Key simulation parameters:\n"
-                     f"- t_max: {t_max}\n"
-                     f"- Number of steps: {num_steps}\n"
-                     f"- RF Frequency: {args.get('nu_rf', 'N/A')}\n"
-                     f"- Initial State Index: {state_index}\n",
-                     height=300,
-                     key="plot_explanation")
-        if st.button("Copy to Clipboard", key="copy_to_clipboard_button_2"):
-            pyperclip.copy(plot_explanation)
-            st.success("Plot explanation copied to clipboard!")
+        with st.expander("Plot Context"):
+            plot_explanation = st.text_area("Plot Context", 
+                         f"This shows the time evolution of the observable ⟨{observable_name}⟩ over time.\n\n"
+                         f"Key simulation parameters:\n"
+                         f"- t_max: {t_max}\n"
+                         f"- Number of steps: {num_steps}\n"
+                         f"- RF Frequency: {args.get('nu_rf', 'N/A')}\n"
+                         f"- Initial State Index: {state_index}\n",
+                         height=300,
+                         key="plot_explanation")
+            if st.button("Copy to Clipboard", key="copy_to_clipboard_button_2"):
+                pyperclip.copy(plot_explanation)
+                st.success("Plot explanation copied to clipboard!")
     else:
         st.write("No observable provided; skipping plot.")
 
