@@ -415,7 +415,8 @@ def evolve_and_plot_time_dep(
         st.write("No observable provided; skipping plot.")
 
     # Optionally generate Bloch sphere plots for selected times
-    if times_for_bloch:
+    show_bloch_spheres = st.sidebar.checkbox("Show Bloch Spheres", value=False)
+    if show_bloch_spheres and times_for_bloch:
         sx_12 = sigmax()/2
         sy_12 = sigmay()/2
         sz_12 = sigmaz()/2
@@ -487,6 +488,8 @@ The Hamiltonian includes nuclear and electron Zeeman effects, nuclear quadrupole
 hyperfine coupling, and a time-dependent RF drive on the nuclei.
 Adjust the parameters below to explore the system's behavior.
 """)
+
+
 # Create a container for the floating window
 floating_container = st.empty()
 
@@ -511,6 +514,7 @@ with floating_container:
         \end{aligned}
         """)
         st.markdown('</div>', unsafe_allow_html=True)
+
 # Sidebar for Hamiltonian parameters
 st.sidebar.subheader("Global Parameters")
 st.session_state.num_nuclei = st.session_state.get('num_nuclei', 3)
