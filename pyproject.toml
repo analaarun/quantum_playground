@@ -25,3 +25,7 @@ license = {text = "MIT"}
 
 [tool.pdm]
 distribution = false
+
+# Add this section to specify the package directory
+[tool.pdm.build]
+includes = ["quantumplayground"]
