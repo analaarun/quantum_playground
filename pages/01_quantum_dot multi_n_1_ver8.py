@@ -487,7 +487,30 @@ The Hamiltonian includes nuclear and electron Zeeman effects, nuclear quadrupole
 hyperfine coupling, and a time-dependent RF drive on the nuclei.
 Adjust the parameters below to explore the system's behavior.
 """)
+# Create a container for the floating window
+floating_container = st.empty()
 
+# Create the content for the floating window
+with floating_container:
+    col1 = st.columns(1)[0]
+    with col1:
+        st.markdown('<div class="floating-box">', unsafe_allow_html=True)
+        st.markdown("### Hamiltonian of the Quantum Dot System")
+        st.markdown("The Hamiltonian includes three nuclear spins (I₁, I₂, I₃) and one electron spin (S):")
+        st.latex(r"""
+        H = \sum_{i=1}^3 \left(H_{Z,N}^{(i)} + H_{Q,N}^{(i)}\right) + \sum_{i<j} H_{DD,N}^{(ij)} + H_{Z,e} + \sum_{i=1}^3 H_{hf}^{(i)}
+        """)
+        st.markdown("where:")
+        st.latex(r"""
+        \begin{aligned}
+        H_{Z,N}^{(i)} & \quad \text{Zeeman term for nuclear spin } i \\
+        H_{Q,N}^{(i)} & \quad \text{Quadrupole term for nuclear spin } i \\
+        H_{DD,N}^{(ij)} & \quad \text{Dipole-dipole interaction between nuclei } i,j \\
+        H_{Z,e} & \quad \text{Electron Zeeman term} \\
+        H_{hf}^{(i)} & \quad \text{Hyperfine interaction between nucleus } i \text{ and electron}
+        \end{aligned}
+        """)
+        st.markdown('</div>', unsafe_allow_html=True)
 # Sidebar for Hamiltonian parameters
 st.sidebar.subheader("Global Parameters")
 st.session_state.num_nuclei = st.session_state.get('num_nuclei', 3)
