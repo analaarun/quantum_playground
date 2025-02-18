@@ -1,0 +1,27 @@
+[project]
+name = "QuantumPlayground"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Arun Kumar Anala", email = "aanala@salesforce.com"},
+]
+dependencies = [
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "qutip>=4.7.0",
+    "ipykernel",
+    "jupyter",
+    "matplotlib",
+    "streamlit>=1.41.1",
+    "plotly>=6.0.0",
+    "openai>=1.62.0",
+    "pyperclip>=1.9.0"
+]
+
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
