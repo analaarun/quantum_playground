@@ -3,7 +3,7 @@ name = "QuantumPlayground"
 version = "0.1.0"
 description = "Default template for PDM package"
 authors = [
-    {name = "Arun Kumar Anala", email = "aanala@salesforce.com"},
+    {name = "Arun Kumar Anala", email = "analaarun.k@gmail.com"},
 ]
 dependencies = [
     "pandas>=2.2.0",
@@ -25,3 +25,6 @@ license = {text = "MIT"}
 
 [tool.pdm]
 distribution = false
+
+[tool.pdm.build]
+includes = ["quantum_playground"]
