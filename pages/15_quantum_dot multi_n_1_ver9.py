@@ -189,7 +189,8 @@ def evolve_and_plot_time_dep(
     times_for_bloch=None,   
     args=None,
     include_decoherence=False,
-    collapse_ops=None
+    collapse_ops=None,
+    show_bloch_spheres=False
 ):
     """
     Evolve an initial state under a (time-dependent) Hamiltonian H.
@@ -435,7 +436,6 @@ def evolve_and_plot_time_dep(
         st.write("No observable provided; skipping plot.")
 
     # Optionally generate Bloch sphere plots for selected times
-    show_bloch_spheres = st.sidebar.checkbox("Show Bloch Spheres", value=False)
     if show_bloch_spheres and times_for_bloch:
         sx_12 = sigmax()/2
         sy_12 = sigmay()/2
@@ -557,8 +557,6 @@ st.session_state.hbar = st.sidebar.number_input("ħ (reduced Planck constant):",
 st.session_state.Bz = st.sidebar.number_input("Bz (magnetic field, T):", 0.0, 2.0, st.session_state.Bz, 0.1)
 st.session_state.J_dd = st.sidebar.number_input("J_dd (dipole-dipole coupling):", 0.0, 2.0, st.session_state.J_dd, 0.05)
 st.session_state.nu_rf = st.sidebar.number_input("RF Frequency (MHz):", 0.0, 50.0, st.session_state.nu_rf, 0.1)
-st.session_state.amp_rf = st.session_state.get('amp_rf', 0.1)
-# Use the number_input without directly referencing session state in the value parameter
 st.session_state.amp_rf = st.sidebar.number_input(
     "RF Amplitude:", 
     min_value=0.0, 
@@ -683,135 +681,139 @@ def plot_energy_levels(eigenvals_sorted_rounded, incremental_changes_rounded, en
     )
     return fig
 
-st.subheader("Energy Levels")
-fig_energy = plot_energy_levels(eigenvals_sorted_rounded, incremental_changes_rounded, energy_diffs_rounded)
-st.plotly_chart(fig_energy, use_container_width=True)
+# Replace the checkbox controls with tabs
+tab1, tab2, tab3 = st.tabs(["Energy Levels", "Interactive Energy Levels", "Time Evolution"])
 
-with st.expander("Plot and Calculation Context"):
-    # Calculate expectation values for each eigenstate
-    sx = sigmax()/2
-    sy = sigmay()/2
-    sz = sigmaz()/2
-    
-    # Embed operators for all spins (nuclei and electron)
-    electron_idx = num_nuclei  # electron is the last qubit
-    
-    # Create embedded operators for each nucleus and the electron
-    nuclear_ops = []
-    for i in range(num_nuclei):
-        nuclear_ops.append({
-            'x': embed_operator(sx, i, num_nuclei + 1),
-            'y': embed_operator(sy, i, num_nuclei + 1),
-            'z': embed_operator(sz, i, num_nuclei + 1)
-        })
-    
-    electron_ops = {
-        'x': embed_operator(sx, electron_idx, num_nuclei + 1),
-        'y': embed_operator(sy, electron_idx, num_nuclei + 1),
-        'z': embed_operator(sz, electron_idx, num_nuclei + 1)
-    }
-    
-    # Calculate expectation values for each state
-    state_expectations = []
-    for idx, state in enumerate(eigenstates):
-        # Calculate nuclear expectations
-        nuclear_expects = []
-        for i in range(num_nuclei):
-            ex = expect(nuclear_ops[i]['x'], state)
-            ey = expect(nuclear_ops[i]['y'], state)
-            ez = expect(nuclear_ops[i]['z'], state)
-            nuclear_expects.append((ex, ey, ez))
-        
-        # Calculate electron expectations
-        ex_e = expect(electron_ops['x'], state)
-        ey_e = expect(electron_ops['y'], state)
-        ez_e = expect(electron_ops['z'], state)
-        
-        state_expectations.append({
-            'nuclear': nuclear_expects,
-            'electron': (ex_e, ey_e, ez_e)
-        })
-    
-    context_text = f"""
-    Plot Context: Sorted Energy Levels ({num_nuclei} nuclei + 1 electron)
-    
-    State Indices: 
-    {', '.join(map(str, range(len(eigenvals_sorted_rounded))))}
-    
-    Energy Levels (MHz): 
-    {', '.join(map(str, eigenvals_sorted_rounded))}
-    
-    Incremental Changes (MHz): 
-    {', '.join(map(str, incremental_changes_rounded))}
-    
-    Energy Differences from Ground State (MHz): 
-    {', '.join(map(str, energy_diffs_rounded))}
-    
-    Detailed State Information:
-    {'\n'.join(
-        f"State {idx}: Energy = {energy:.3f} MHz\n"
-        f"  Electron: ⟨Sx,Sy,Sz⟩ = ({exp['electron'][0]:.3f}, {exp['electron'][1]:.3f}, {exp['electron'][2]:.3f})\n"
-        + '\n'.join(
-            f"  Nucleus {n+1}: ⟨Sx,Sy,Sz⟩ = ({exp['nuclear'][n][0]:.3f}, {exp['nuclear'][n][1]:.3f}, {exp['nuclear'][n][2]:.3f})"
-            for n in range(num_nuclei)
-        )
-        for idx, (energy, exp) in enumerate(zip(eigenvals_sorted_rounded, state_expectations))
-    )}
-    
-    Hamiltonian Input Data:
-    - Number of Nuclei: {num_nuclei}
-    - Magnetic Field (Bz): {Bz} T
-    - Electron Gyromagnetic Ratio (gamma_e): {gamma_e} MHz/T
-    - Dipole-Dipole Coupling (J_dd): {J_dd} MHz
-    - Reduced Planck Constant (hbar): {hbar}
-    - RF Frequency (nu_rf): {nu_rf} MHz
-    - RF Amplitude (amp_rf): {amp_rf}
-    - Nuclear Gyromagnetic Ratio (gamma_n): {gamma_n} MHz/T
-    - Quadrupole Coupling (q): {q}
-    - Quadrupole Asymmetry (eta): {eta}
-    - Hyperfine Coupling (A_hf): {A_hf} MHz
-    """
-    
-    user_prompt = st.text_area(
-        "Context",
-        value=context_text,
-        height=300,
-        key="user_prompt_text_area",
-        help="Custom prompt to combine with the context for ChatGPT."
-    )
-    if st.button("Copy to Clipboard", key="copy_to_clipboard_button_1"):
-        pyperclip.copy(user_prompt)
-        st.success("User prompt copied to clipboard!")
-        
-plot_bloch_spheres = st.sidebar.checkbox("Plot Bloch Spheres for Eigenstates")
-if plot_bloch_spheres:
-    with st.container():
-        st.subheader("Bloch Sphere Representations")
-        all_nuclear_dms, all_electron_dms, all_energies, all_psis = [], [], [], []
-        for idx in range(len(eigenvalues)):
-            nuc_dms, elec_dm, energy, psi = extract_subsystems_from_eigenstate(H_static, idx)
-            all_nuclear_dms.append(nuc_dms)
-            all_electron_dms.append(elec_dm)
-            all_energies.append(energy)
-            all_psis.append(psi)
-      
+with tab1:
+    st.subheader("Energy Levels")
+    fig_energy = plot_energy_levels(eigenvals_sorted_rounded, incremental_changes_rounded, energy_diffs_rounded)
+    st.plotly_chart(fig_energy, use_container_width=True)
+
+    with st.expander("Plot and Calculation Context"):
+        # Calculate expectation values for each eigenstate
         sx = sigmax()/2
         sy = sigmay()/2
         sz = sigmaz()/2
-        for state_idx, energy in enumerate(all_energies):
-            st.markdown(f"### Eigenstate {state_idx} (Energy: {energy:.3f})")
-            with st.container():
-                cols = st.columns(len(all_nuclear_dms[state_idx]) + 1)
-                for i, dm in enumerate(all_nuclear_dms[state_idx]):
-                    with cols[i]:
-                        st.pyplot(create_spin_bloch(dm, title=f"Nucleus {i+1}"))
-                        ex, ey, ez = expect(sx, dm), expect(sy, dm), expect(sz, dm)
-                        st.write(f"⟨I_x, I_y, I_z⟩ = ({ex:.2f}, {ey:.2f}, {ez:.2f})")
-                with cols[-1]:
-                    st.pyplot(create_spin_bloch(all_electron_dms[state_idx], title="Electron"))
-                    ex, ey, ez = expect(sx, all_electron_dms[state_idx]), expect(sy, all_electron_dms[state_idx]), expect(sz, all_electron_dms[state_idx])
-                    st.write(f"⟨S_x, S_y, S_z⟩ = ({ex:.2f}, {ey:.2f}, {ez:.2f})")
-            st.write("---")
+        
+        # Embed operators for all spins (nuclei and electron)
+        electron_idx = num_nuclei  # electron is the last qubit
+        
+        # Create embedded operators for each nucleus and the electron
+        nuclear_ops = []
+        for i in range(num_nuclei):
+            nuclear_ops.append({
+                'x': embed_operator(sx, i, num_nuclei + 1),
+                'y': embed_operator(sy, i, num_nuclei + 1),
+                'z': embed_operator(sz, i, num_nuclei + 1)
+            })
+        
+        electron_ops = {
+            'x': embed_operator(sx, electron_idx, num_nuclei + 1),
+            'y': embed_operator(sy, electron_idx, num_nuclei + 1),
+            'z': embed_operator(sz, electron_idx, num_nuclei + 1)
+        }
+        
+        # Calculate expectation values for each state
+        state_expectations = []
+        for idx, state in enumerate(eigenstates):
+            # Calculate nuclear expectations
+            nuclear_expects = []
+            for i in range(num_nuclei):
+                ex = expect(nuclear_ops[i]['x'], state)
+                ey = expect(nuclear_ops[i]['y'], state)
+                ez = expect(nuclear_ops[i]['z'], state)
+                nuclear_expects.append((ex, ey, ez))
+            
+            # Calculate electron expectations
+            ex_e = expect(electron_ops['x'], state)
+            ey_e = expect(electron_ops['y'], state)
+            ez_e = expect(electron_ops['z'], state)
+            
+            state_expectations.append({
+                'nuclear': nuclear_expects,
+                'electron': (ex_e, ey_e, ez_e)
+            })
+        
+        context_text = f"""
+        Plot Context: Sorted Energy Levels ({num_nuclei} nuclei + 1 electron)
+        
+        State Indices: 
+        {', '.join(map(str, range(len(eigenvals_sorted_rounded))))}
+        
+        Energy Levels (MHz): 
+        {', '.join(map(str, eigenvals_sorted_rounded))}
+        
+        Incremental Changes (MHz): 
+        {', '.join(map(str, incremental_changes_rounded))}
+        
+        Energy Differences from Ground State (MHz): 
+        {', '.join(map(str, energy_diffs_rounded))}
+        
+        Detailed State Information:
+        {'\n'.join(
+            f"State {idx}: Energy = {energy:.3f} MHz\n"
+            f"  Electron: ⟨Sx,Sy,Sz⟩ = ({exp['electron'][0]:.3f}, {exp['electron'][1]:.3f}, {exp['electron'][2]:.3f})\n"
+            + '\n'.join(
+                f"  Nucleus {n+1}: ⟨Sx,Sy,Sz⟩ = ({exp['nuclear'][n][0]:.3f}, {exp['nuclear'][n][1]:.3f}, {exp['nuclear'][n][2]:.3f})"
+                for n in range(num_nuclei)
+            )
+            for idx, (energy, exp) in enumerate(zip(eigenvals_sorted_rounded, state_expectations))
+        )}
+        
+        Hamiltonian Input Data:
+        - Number of Nuclei: {num_nuclei}
+        - Magnetic Field (Bz): {Bz} T
+        - Electron Gyromagnetic Ratio (gamma_e): {gamma_e} MHz/T
+        - Dipole-Dipole Coupling (J_dd): {J_dd} MHz
+        - Reduced Planck Constant (hbar): {hbar}
+        - RF Frequency (nu_rf): {nu_rf} MHz
+        - RF Amplitude (amp_rf): {amp_rf}
+        - Nuclear Gyromagnetic Ratio (gamma_n): {gamma_n} MHz/T
+        - Quadrupole Coupling (q): {q}
+        - Quadrupole Asymmetry (eta): {eta}
+        - Hyperfine Coupling (A_hf): {A_hf} MHz
+        """
+        
+        user_prompt = st.text_area(
+            "Context",
+            value=context_text,
+            height=300,
+            key="user_prompt_text_area",
+            help="Custom prompt to combine with the context for ChatGPT."
+        )
+        if st.button("Copy to Clipboard", key="copy_to_clipboard_button_1"):
+            pyperclip.copy(user_prompt)
+            st.success("User prompt copied to clipboard!")
+        
+    plot_bloch_spheres = st.sidebar.checkbox("Plot Bloch Spheres for Eigenstates", key="energy_levels_bloch_spheres_checkbox")
+    if plot_bloch_spheres:
+        with st.container():
+            st.subheader("Bloch Sphere Representations")
+            all_nuclear_dms, all_electron_dms, all_energies, all_psis = [], [], [], []
+            for idx in range(len(eigenvalues)):
+                nuc_dms, elec_dm, energy, psi = extract_subsystems_from_eigenstate(H_static, idx)
+                all_nuclear_dms.append(nuc_dms)
+                all_electron_dms.append(elec_dm)
+                all_energies.append(energy)
+                all_psis.append(psi)
+          
+            sx = sigmax()/2
+            sy = sigmay()/2
+            sz = sigmaz()/2
+            for state_idx, energy in enumerate(all_energies):
+                st.markdown(f"### Eigenstate {state_idx} (Energy: {energy:.3f})")
+                with st.container():
+                    cols = st.columns(len(all_nuclear_dms[state_idx]) + 1)
+                    for i, dm in enumerate(all_nuclear_dms[state_idx]):
+                        with cols[i]:
+                            st.pyplot(create_spin_bloch(dm, title=f"Nucleus {i+1}"))
+                            ex, ey, ez = expect(sx, dm), expect(sy, dm), expect(sz, dm)
+                            st.write(f"⟨I_x, I_y, I_z⟩ = ({ex:.2f}, {ey:.2f}, {ez:.2f})")
+                    with cols[-1]:
+                        st.pyplot(create_spin_bloch(all_electron_dms[state_idx], title="Electron"))
+                        ex, ey, ez = expect(sx, all_electron_dms[state_idx]), expect(sy, all_electron_dms[state_idx]), expect(sz, all_electron_dms[state_idx])
+                        st.write(f"⟨S_x, S_y, S_z⟩ = ({ex:.2f}, {ey:.2f}, {ez:.2f})")
+                st.write("---")
 
 
 import plotly.express as px
@@ -848,9 +850,7 @@ def plot_energy_levels_with_parameters(H_static, Bz, A_hf, J_dd, gamma_e, gamma_
     )
     return fig
 
-show_interactive_energy_levels = st.sidebar.checkbox("Show Interactive Energy Levels", value=False)
-
-if show_interactive_energy_levels:
+with tab2:
     st.subheader("Interactive Energy Levels")
     DEFAULT_VALUES = {
         'Bz': 1.0,
@@ -1161,28 +1161,43 @@ if show_interactive_energy_levels:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-# Time Evolution Section
-time_evolution_custom = st.sidebar.checkbox("Time Evolution Custom")
-if time_evolution_custom:
-    state_index = st.sidebar.number_input(
-        "Initial State Index",
-        min_value=0.0,
-        max_value=float(hilbert_space_dim - 1),
-        value=0.0,
-        step=0.5,
-        help=f"Select the initial state index (0.0 to {float(hilbert_space_dim-1)})"
-    )
-    observable_name = st.sidebar.selectbox(
-        "Observable Name:", 
-        ["multi_view", "electron_only"] + ["system"] + [f"nuclear_{i+1}" for i in range(num_nuclei)] , 
-        index=0,
-        key="observable_custom"
-    )
-    t_max = st.sidebar.number_input("Total Time (arbitrary units):", 1.0, 1000.0, 10.0, 1.0, key="t_max_custom")
-    num_steps = st.sidebar.number_input("Number of Time Steps:", 10, 1000, 200, 10, key="num_steps_custom")
-    times_for_bloch = st.sidebar.text_input("Times for Bloch Spheres (comma-separated):", "0, 5, 10", key="times_bloch_custom")
-    times_for_bloch = [float(t) for t in times_for_bloch.split(",")]
-    nu_rf_custom = st.sidebar.number_input("RF Frequency (MHz):", -100.0, 100.0, 2.0, 0.1, key="nu_rf_custom")
+with tab3:
+    # Add the checkbox to both sidebar and tab when tab3 is active
+    
+    st.subheader("Time Evolution")
+    with st.sidebar:
+        st.sidebar.write("### Time Evolution Settings")
+        state_index = st.number_input(
+            "Initial State Index",
+            min_value=0.0,
+            max_value=float(hilbert_space_dim - 1),
+            value=0.0,
+            step=0.5,
+            help=f"Select the initial state index (0.0 to {float(hilbert_space_dim-1)})"
+        )
+        observable_name = st.selectbox(
+            "Observable Name:", 
+            ["multi_view", "electron_only"] + ["system"] + [f"nuclear_{i+1}" for i in range(num_nuclei)], 
+            index=0,
+            key="observable_custom"
+        )
+        t_max = st.number_input("Total Time (arbitrary units):", 1.0, 1000.0, 10.0, 1.0, key="t_max_custom")
+        num_steps = st.number_input("Number of Time Steps:", 10, 1000, 200, 10, key="num_steps_custom")
+        
+        times_for_bloch = st.text_input("Times for Bloch Spheres (comma-separated):", "0, 5, 10", key="times_bloch_custom")
+        times_for_bloch = [float(t) for t in times_for_bloch.split(",")]
+        
+        nu_rf_custom = st.number_input("RF Frequency (MHz):", -100.0, 100.0, 2.0, 0.1, key="nu_rf_custom")
+        include_decoherence = st.checkbox("Include Decoherence", value=False, key="decoherence_checkbox")
+        # Also show the checkbox in tab3
+        show_bloch_spheres = st.checkbox("Show Bloch Spheres", value=False, key="time_evolution_bloch_spheres_tab")
+        # Sync the two checkboxes
+        # show_bloch_spheres = show_bloch_spheres or show_bloch_spheres_tab
+    
+    if include_decoherence:
+        with st.sidebar:
+            gamma_relax_e = st.number_input("Electron Relaxation Rate (γ_relax)", 0.0, 10.0, 0.1, 0.1, key="gamma_relax")
+            gamma_dephase_e = st.number_input("Electron Dephasing Rate (γ_dephase)", 0.0, 10.0, 0.1, 0.1, key="gamma_dephase")
     
     # Define collapse operators if decoherence is included
     collapse_ops = []
@@ -1199,7 +1214,7 @@ if time_evolution_custom:
         collapse_ops.append(np.sqrt(gamma_dephase_e) * electron_dephase)
     
     res = evolve_and_plot_time_dep(
-        H = H_td,
+        H=H_td,
         state_index=state_index,
         t_max=t_max,
         num_steps=num_steps,
@@ -1207,6 +1222,7 @@ if time_evolution_custom:
         times_for_bloch=times_for_bloch,
         args={"nu_rf": nu_rf_custom, "amp_rf": amp_rf},
         include_decoherence=include_decoherence,
-        collapse_ops=collapse_ops
+        collapse_ops=collapse_ops,
+        show_bloch_spheres=show_bloch_spheres
     )
     
