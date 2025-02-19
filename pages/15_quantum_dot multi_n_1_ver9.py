@@ -847,8 +847,7 @@ if selected_tab == "Energy Levels":
             "Context",
             value=context_text,
             height=300,
-            key="user_prompt_text_area",
-            help="Custom prompt to combine with the context for ChatGPT."
+            key="user_prompt_text_area"
         )
         if st.button("Copy to Clipboard", key="copy_to_clipboard_button_1"):
             pyperclip.copy(user_prompt)
