@@ -564,25 +564,14 @@ with st.expander("Hamiltonian of the Quantum Dot System", expanded=False):
 
 # Sidebar for Hamiltonian parameters
 st.sidebar.subheader("Global Parameters")
-st.session_state.num_nuclei = st.session_state.get('num_nuclei', 1)
-st.session_state.hbar = st.session_state.get('hbar', 1.0)
-st.session_state.Bz = st.session_state.get('Bz', 1.0)
-st.session_state.J_dd = st.session_state.get('J_dd', 0.1)
-st.session_state.nu_rf = st.session_state.get('nu_rf', 1.0)
-st.session_state.amp_rf = st.session_state.get('amp_rf', 0.1)
-
-# Calculate Hilbert space dimension (for one electron + nuclei)
-# N_nuclei = st.sidebar.number_input("Number of Nuclei", min_value=1, max_value=10, value=5)
-# hilbert_space_dim = 2 * (2 ** N_nuclei)
-
-st.session_state.num_nuclei = st.sidebar.number_input("Number of Nuclei:", 0, 20, st.session_state.num_nuclei, 1)
+st.session_state.num_nuclei = st.sidebar.number_input("Number of Nuclei (dimensionless):", 0, 20, st.session_state.num_nuclei, 1)
 hilbert_space_dim = 2 * (2 ** st.session_state.num_nuclei)
-st.session_state.hbar = st.sidebar.number_input("ħ (reduced Planck constant):", 0.0, 2.0, st.session_state.hbar, 0.1)
-st.session_state.Bz = st.sidebar.number_input("Bz (magnetic field, T):", 0.0, 2.0, st.session_state.Bz, 0.1)
-st.session_state.J_dd = st.sidebar.number_input("J_dd (dipole-dipole coupling):", 0.0, 2.0, st.session_state.J_dd, 0.05)
+st.session_state.hbar = st.sidebar.number_input("ħ (dimensionless):", 0.0, 2.0, st.session_state.hbar, 0.1)
+st.session_state.Bz = st.sidebar.number_input("Bz (Tesla):", 0.0, 2.0, st.session_state.Bz, 0.1)
+st.session_state.J_dd = st.sidebar.number_input("J_dd (MHz):", 0.0, 2.0, st.session_state.J_dd, 0.05)
 st.session_state.nu_rf = st.sidebar.number_input("RF Frequency (MHz):", 0.0, 50.0, st.session_state.nu_rf, 0.1)
 st.session_state.amp_rf = st.sidebar.number_input(
-    "RF Amplitude:", 
+    "RF Amplitude (dimensionless):", 
     min_value=0.0, 
     max_value=100.0, 
     value=st.session_state.amp_rf,
@@ -596,7 +585,7 @@ st.session_state.eta = st.session_state.get('eta', 0.2)
 st.session_state.A_hf = st.session_state.get('A_hf', 0.5)
 
 st.sidebar.markdown(
-    "<span style='color:#4CAF50;font-weight:bold;'>γ_n (nuclear gyromagnetic ratio):</span>",
+    "<span style='color:#4CAF50;'>γ_n (MHz/T):</span>",
     unsafe_allow_html=True
 )
 st.session_state.gamma_n = st.sidebar.number_input(
@@ -604,31 +593,31 @@ st.session_state.gamma_n = st.sidebar.number_input(
     0.0, 2.0, st.session_state.gamma_n, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
 )
 
-st.sidebar.markdown("<span style='color:#4CAF50;font-weight:bold;'>q (quadrupole coupling):</span>", unsafe_allow_html=True)
+st.sidebar.markdown("<span style='color:#4CAF50;'>q (MHz):</span>", unsafe_allow_html=True)
 st.session_state.q = st.sidebar.number_input("q:", -2.0, 2.0, st.session_state.q, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed")
 
 st.sidebar.markdown(
-    "<span style='color:#4CAF50;font-weight:bold;'>η (quadrupole asymmetry):</span>",
+    "<span style='color:#4CAF50;'>η (dimensionless):</span>",
     unsafe_allow_html=True
 )
 st.session_state.eta = st.sidebar.number_input(
-    "η (quadrupole asymmetry):", 
+    "η", 
     -1.0, 1.0, st.session_state.eta, 0.05, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
 )
 
-st.sidebar.markdown("<span style='color:#4CAF50;font-weight:bold;'>A_hf (hyperfine coupling):</span>", unsafe_allow_html=True)
-st.session_state.A_hf = st.sidebar.number_input("A_hf (hyperfine coupling)", 0.0, 100.0, st.session_state.A_hf, 0.1, label_visibility="collapsed")
+st.sidebar.markdown("<span style='color:#4CAF50;'>A_hf (MHz):</span>", unsafe_allow_html=True)
+st.session_state.A_hf = st.sidebar.number_input("A_hf", 0.0, 100.0, st.session_state.A_hf, 0.1, label_visibility="collapsed")
 
 st.sidebar.subheader("Electron Parameters")
 st.session_state.gamma_e = st.session_state.get('gamma_e', 28.0)
-st.session_state.gamma_e = st.sidebar.number_input("γ_e (electron gyromagnetic ratio):", 0.0, 50.0, st.session_state.gamma_e, 0.1)
+st.session_state.gamma_e = st.sidebar.number_input("γ_e (MHz/T):", 0.0, 50.0, st.session_state.gamma_e, 0.1)
 
 # New: Decoherence options
 st.sidebar.subheader("Decoherence Options")
 include_decoherence = st.sidebar.checkbox("Include Decoherence", value=False)
 # Decoherence rates for electron (in same units as simulation, e.g. MHz)
-gamma_relax_e = st.sidebar.number_input("Electron Relaxation Rate (γ_relax)", 0.0, 10.0, 0.1, 0.1)
-gamma_dephase_e = st.sidebar.number_input("Electron Dephasing Rate (γ_dephase)", 0.0, 10.0, 0.1, 0.1)
+gamma_relax_e = st.sidebar.number_input("Electron Relaxation Rate (MHz)", 0.0, 10.0, 0.1, 0.1)
+gamma_dephase_e = st.sidebar.number_input("Electron Dephasing Rate (MHz)", 0.0, 10.0, 0.1, 0.1)
 
 plot_bloch_spheres = st.sidebar.checkbox("Plot Bloch Spheres for Eigenstates", key="energy_levels_bloch_spheres_checkbox")
 # Define variables for use in other functions
@@ -647,7 +636,7 @@ gamma_e = st.session_state.gamma_e
 with st.sidebar:
     st.sidebar.write("### Time Evolution Settings")
     state_index = st.number_input(
-        "Initial State Index",
+        "Initial State Index (dimensionless)",
         min_value=0.0,
         max_value=float(hilbert_space_dim - 1),
         value=0.0,
@@ -661,7 +650,7 @@ with st.sidebar:
         key="observable_custom"
     )
     t_max = st.number_input("Total Time (arbitrary units):", 1.0, 1000.0, 10.0, 1.0, key="t_max_custom")
-    num_steps = st.number_input("Number of Time Steps:", 10, 1000, 200, 10, key="num_steps_custom")
+    num_steps = st.number_input("Number of Time Steps (dimensionless):", 10, 1000, 200, 10, key="num_steps_custom")
     
     times_for_bloch = st.text_input("Times for Bloch Spheres (comma-separated):", "0, 5, 10", key="times_bloch_custom")
     times_for_bloch = [float(t) for t in times_for_bloch.split(",")]
@@ -675,8 +664,8 @@ with st.sidebar:
 
     if include_decoherence:
         with st.sidebar:
-            gamma_relax_e = st.number_input("Electron Relaxation Rate (γ_relax)", 0.0, 10.0, 0.1, 0.1, key="gamma_relax")
-            gamma_dephase_e = st.number_input("Electron Dephasing Rate (γ_dephase)", 0.0, 10.0, 0.1, 0.1, key="gamma_dephase")
+            gamma_relax_e = st.number_input("Electron Relaxation Rate (MHz)", 0.0, 10.0, 0.1, 0.1, key="gamma_relax")
+            gamma_dephase_e = st.number_input("Electron Dephasing Rate (MHz)", 0.0, 10.0, 0.1, 0.1, key="gamma_dephase")
 
 
 
@@ -906,7 +895,7 @@ if selected_tab == "Interactive Energy Levels":
     col1, col2, col3 = st.columns(3)
     with col1:
         Bz_value = st.slider(
-            "Magnetic Field (Bz) [T]", 
+            "Magnetic Field (Tesla)", 
             min_value=0.0, 
             max_value=10.0, 
             value=DEFAULT_VALUES['Bz'] if st.session_state.get('reset_sliders', False) else st.session_state.get('Bz_value', DEFAULT_VALUES['Bz']),
@@ -915,7 +904,7 @@ if selected_tab == "Interactive Energy Levels":
         )
     with col2:
         A_hf_value = st.slider(
-            "Hyperfine Coupling (A_hf) [MHz]", 
+            "Hyperfine Coupling (MHz)", 
             min_value=0.0, 
             max_value=2.0, 
             value=DEFAULT_VALUES['A_hf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('A_hf_value', DEFAULT_VALUES['A_hf']),
@@ -924,7 +913,7 @@ if selected_tab == "Interactive Energy Levels":
         )
     with col3:
         J_dd_value = st.slider(
-            "Dipole-Dipole Coupling (J_dd) [MHz]", 
+            "Dipole-Dipole Coupling (MHz)", 
             min_value=0.0, 
             max_value=2.0, 
             value=DEFAULT_VALUES['J_dd'] if st.session_state.get('reset_sliders', False) else st.session_state.get('J_dd_value', DEFAULT_VALUES['J_dd']),
@@ -935,7 +924,7 @@ if selected_tab == "Interactive Energy Levels":
     col4, col5, col6 = st.columns(3)
     with col4:
         gamma_e_value = st.slider(
-            "Electron Gyromagnetic Ratio (γ_e) [MHz/T]", 
+            "Electron Gyromagnetic Ratio (MHz/T)", 
             min_value=0.0, 
             max_value=50.0, 
             value=DEFAULT_VALUES['gamma_e'] if st.session_state.get('reset_sliders', False) else st.session_state.get('gamma_e_value', DEFAULT_VALUES['gamma_e']),
@@ -944,7 +933,7 @@ if selected_tab == "Interactive Energy Levels":
         )
     with col5:
         gamma_n_value = st.slider(
-            "Nuclear Gyromagnetic Ratio (γ_n) [MHz/T]", 
+            "Nuclear Gyromagnetic Ratio (MHz/T)", 
             min_value=0.0, 
             max_value=2.0, 
             value=DEFAULT_VALUES['gamma_n'] if st.session_state.get('reset_sliders', False) else st.session_state.get('gamma_n_value', DEFAULT_VALUES['gamma_n']),
@@ -953,7 +942,7 @@ if selected_tab == "Interactive Energy Levels":
         )
     with col6:
         nu_rf_value = st.slider(
-            "RF Frequency (ν_rf) [MHz]", 
+            "RF Frequency (MHz)", 
             min_value=0.0, 
             max_value=2.0, 
             value=DEFAULT_VALUES['nu_rf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('nu_rf_value', DEFAULT_VALUES['nu_rf']),
