@@ -566,12 +566,12 @@ with st.expander("Hamiltonian of the Quantum Dot System", expanded=False):
 st.sidebar.subheader("Global Parameters")
 st.session_state.num_nuclei = st.sidebar.number_input("Number of Nuclei (dimensionless):", 0, 20, st.session_state.num_nuclei, 1)
 hilbert_space_dim = 2 * (2 ** st.session_state.num_nuclei)
-st.session_state.hbar = st.sidebar.number_input("ħ (dimensionless):", 0.0, 2.0, st.session_state.hbar, 0.1)
-st.session_state.Bz = st.sidebar.number_input("Bz (Tesla):", 0.0, 2.0, st.session_state.Bz, 0.1)
-st.session_state.J_dd = st.sidebar.number_input("J_dd (MHz):", 0.0, 2.0, st.session_state.J_dd, 0.05)
-st.session_state.nu_rf = st.sidebar.number_input("RF Frequency (MHz):", 0.0, 50.0, st.session_state.nu_rf, 0.1)
+st.session_state.hbar = st.sidebar.number_input("ħ planck constant (dimensionless):", 0.0, 2.0, st.session_state.hbar, 0.1)
+st.session_state.Bz = st.sidebar.number_input("Bz magnetic field (Tesla):", 0.0, 2.0, st.session_state.Bz, 0.1)
+st.session_state.J_dd = st.sidebar.number_input("J_dd dipole-dipole coupling (MHz):", 0.0, 2.0, st.session_state.J_dd, 0.05)
+st.session_state.nu_rf = st.sidebar.number_input("RF frequency (MHz):", 0.0, 50.0, st.session_state.nu_rf, 0.1)
 st.session_state.amp_rf = st.sidebar.number_input(
-    "RF Amplitude (dimensionless):", 
+    "RF amplitude (dimensionless):", 
     min_value=0.0, 
     max_value=100.0, 
     value=st.session_state.amp_rf,
@@ -585,19 +585,19 @@ st.session_state.eta = st.session_state.get('eta', 0.2)
 st.session_state.A_hf = st.session_state.get('A_hf', 0.5)
 
 st.sidebar.markdown(
-    "<span style='color:#4CAF50;'>γ_n (MHz/T):</span>",
+    "<span style='color:#4CAF50;'>γ_n gyromagnetic ratio (MHz/T):</span>",
     unsafe_allow_html=True
 )
 st.session_state.gamma_n = st.sidebar.number_input(
-    "γ_n", 
-    0.0, 2.0, st.session_state.gamma_n, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
+    "γ_n (MHz/T) input", 
+    0.0, 100.0, st.session_state.gamma_n, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
 )
 
-st.sidebar.markdown("<span style='color:#4CAF50;'>q (MHz):</span>", unsafe_allow_html=True)
+st.sidebar.markdown("<span style='color:#4CAF50;'>q quadrupole coupling (MHz):</span>", unsafe_allow_html=True)
 st.session_state.q = st.sidebar.number_input("q:", -2.0, 2.0, st.session_state.q, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed")
 
 st.sidebar.markdown(
-    "<span style='color:#4CAF50;'>η (dimensionless):</span>",
+    "<span style='color:#4CAF50;'>η quadrupole asymmetry (dimensionless):</span>",
     unsafe_allow_html=True
 )
 st.session_state.eta = st.sidebar.number_input(
@@ -605,12 +605,12 @@ st.session_state.eta = st.sidebar.number_input(
     -1.0, 1.0, st.session_state.eta, 0.05, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
 )
 
-st.sidebar.markdown("<span style='color:#4CAF50;'>A_hf (MHz):</span>", unsafe_allow_html=True)
+st.sidebar.markdown("<span style='color:#4CAF50;'>A_hf hyperfine coupling (MHz):</span>", unsafe_allow_html=True)
 st.session_state.A_hf = st.sidebar.number_input("A_hf", 0.0, 100.0, st.session_state.A_hf, 0.1, label_visibility="collapsed")
 
 st.sidebar.subheader("Electron Parameters")
 st.session_state.gamma_e = st.session_state.get('gamma_e', 28.0)
-st.session_state.gamma_e = st.sidebar.number_input("γ_e (MHz/T):", 0.0, 50.0, st.session_state.gamma_e, 0.1)
+st.session_state.gamma_e = st.sidebar.number_input("γ_e gyromagnetic ratio (MHz/T):", 0.0, 50.0, st.session_state.gamma_e, 0.1)
 
 # New: Decoherence options
 st.sidebar.subheader("Decoherence Options")
