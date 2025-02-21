@@ -564,17 +564,47 @@ with st.expander("Hamiltonian of the Quantum Dot System", expanded=False):
 
 # Sidebar for Hamiltonian parameters
 st.sidebar.subheader("Global Parameters")
-st.session_state.num_nuclei = st.sidebar.number_input("Number of Nuclei (dimensionless):", 0, 20, st.session_state.num_nuclei, 1)
+st.session_state.num_nuclei = st.sidebar.number_input(
+    "Number of Nuclei (dimensionless):", 
+    0, 
+    20, 
+    st.session_state.get('num_nuclei', 1), 
+    1
+)
 hilbert_space_dim = 2 * (2 ** st.session_state.num_nuclei)
-st.session_state.hbar = st.sidebar.number_input("ħ planck constant (dimensionless):", 0.0, 2.0, st.session_state.hbar, 0.1)
-st.session_state.Bz = st.sidebar.number_input("Bz magnetic field (Tesla):", 0.0, 2.0, st.session_state.Bz, 0.1)
-st.session_state.J_dd = st.sidebar.number_input("J_dd dipole-dipole coupling (MHz):", 0.0, 2.0, st.session_state.J_dd, 0.05)
-st.session_state.nu_rf = st.sidebar.number_input("RF frequency (MHz):", 0.0, 50.0, st.session_state.nu_rf, 0.1)
+st.session_state.hbar = st.sidebar.number_input(
+    "ħ planck constant (dimensionless):", 
+    0.0, 
+    2.0, 
+    st.session_state.get('hbar', 1.0), 
+    0.1
+)
+st.session_state.Bz = st.sidebar.number_input(
+    "Bz magnetic field (Tesla):", 
+    0.0, 
+    2.0, 
+    st.session_state.get('Bz', 0.5), 
+    0.1
+)
+st.session_state.J_dd = st.sidebar.number_input(
+    "J_dd dipole-dipole coupling (MHz):", 
+    0.0, 
+    2.0, 
+    st.session_state.get('J_dd', 0.1), 
+    0.05
+)
+st.session_state.nu_rf = st.sidebar.number_input(
+    "RF frequency (MHz):", 
+    0.0, 
+    50.0, 
+    st.session_state.get('nu_rf', 10.0), 
+    0.1
+)
 st.session_state.amp_rf = st.sidebar.number_input(
     "RF amplitude (dimensionless):", 
     min_value=0.0, 
     max_value=100.0, 
-    value=st.session_state.amp_rf,
+    value=st.session_state.get('amp_rf', 1.0),
     step=0.05
 )
 
