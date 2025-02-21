@@ -582,37 +582,41 @@ st.session_state.hbar = st.sidebar.number_input(
 st.session_state.Bz = st.sidebar.number_input(
     "Bz magnetic field (Tesla):", 
     0.0, 
-    2.0, 
-    st.session_state.get('Bz', 0.5), 
-    0.1
+    100.0, 
+    st.session_state.get('Bz', 1.0), 
+    0.1,
+    format="%.4f"
 )
 st.session_state.J_dd = st.sidebar.number_input(
     "J_dd dipole-dipole coupling (MHz):", 
     0.0, 
-    2.0, 
-    st.session_state.get('J_dd', 0.1), 
+    100.0, 
+    st.session_state.get('J_dd', 0.0), 
     0.05
+    ,format="%.4f"
 )
 st.session_state.nu_rf = st.sidebar.number_input(
     "RF frequency (MHz):", 
     0.0, 
     50.0, 
-    st.session_state.get('nu_rf', 10.0), 
-    0.1
+    st.session_state.get('nu_rf', 0.0), 
+    0.1,
+    format="%.4f"
 )
 st.session_state.amp_rf = st.sidebar.number_input(
     "RF amplitude (dimensionless):", 
     min_value=0.0, 
-    max_value=100.0, 
-    value=st.session_state.get('amp_rf', 1.0),
-    step=0.05
+    max_value=500.0, 
+    value=st.session_state.get('amp_rf', 40.0),
+    step=0.05,
+    format="%.4f"
 )
 
 st.sidebar.subheader("Nuclear Parameters")
 st.session_state.gamma_n = st.session_state.get('gamma_n', 1.0)
-st.session_state.q = st.session_state.get('q', 0.5)
-st.session_state.eta = st.session_state.get('eta', 0.2)
-st.session_state.A_hf = st.session_state.get('A_hf', 0.5)
+st.session_state.q = st.session_state.get('q', 0.0)
+st.session_state.eta = st.session_state.get('eta', 0.0)
+st.session_state.A_hf = st.session_state.get('A_hf', 1.0)
 
 st.sidebar.markdown(
     "<span style='color:#4CAF50;'>γ_n gyromagnetic ratio (MHz/T):</span>",
@@ -620,11 +624,11 @@ st.sidebar.markdown(
 )
 st.session_state.gamma_n = st.sidebar.number_input(
     "γ_n (MHz/T) input", 
-    0.0, 100.0, st.session_state.gamma_n, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
+    0.00, 100.00, st.session_state.gamma_n, 0.01, format="%.4f", key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
 )
 
 st.sidebar.markdown("<span style='color:#4CAF50;'>q quadrupole coupling (MHz):</span>", unsafe_allow_html=True)
-st.session_state.q = st.sidebar.number_input("q:", -2.0, 2.0, st.session_state.q, 0.1, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed")
+st.session_state.q = st.sidebar.number_input("q:", -2.0, 2.0, st.session_state.q, 0.1, format="%.4f", key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed")
 
 st.sidebar.markdown(
     "<span style='color:#4CAF50;'>η quadrupole asymmetry (dimensionless):</span>",
@@ -632,15 +636,15 @@ st.sidebar.markdown(
 )
 st.session_state.eta = st.sidebar.number_input(
     "η", 
-    -1.0, 1.0, st.session_state.eta, 0.05, format=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
+    -1.0, 1.0, st.session_state.eta, 0.05, format="%.4f", key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, label_visibility="collapsed"
 )
 
 st.sidebar.markdown("<span style='color:#4CAF50;'>A_hf hyperfine coupling (MHz):</span>", unsafe_allow_html=True)
-st.session_state.A_hf = st.sidebar.number_input("A_hf", 0.0, 100.0, st.session_state.A_hf, 0.1, label_visibility="collapsed")
+st.session_state.A_hf = st.sidebar.number_input("A_hf", 0.0, 100.0, st.session_state.A_hf, 0.1, format="%.4f", label_visibility="collapsed")
 
 st.sidebar.subheader("Electron Parameters")
 st.session_state.gamma_e = st.session_state.get('gamma_e', 28.0)
-st.session_state.gamma_e = st.sidebar.number_input("γ_e gyromagnetic ratio (MHz/T):", 0.0, 50.0, st.session_state.gamma_e, 0.1)
+st.session_state.gamma_e = st.sidebar.number_input("γ_e gyromagnetic ratio (MHz/T):", 0.0, 100.0, st.session_state.gamma_e, 0.0001, format="%.4f")
 
 # New: Decoherence options
 st.sidebar.subheader("Decoherence Options")
@@ -685,7 +689,7 @@ with st.sidebar:
     times_for_bloch = st.text_input("Times for Bloch Spheres (comma-separated):", "0, 5, 10", key="times_bloch_custom")
     times_for_bloch = [float(t) for t in times_for_bloch.split(",")]
     
-    nu_rf_custom = st.number_input("RF Frequency (MHz):", -100.0, 100.0, 2.0, 0.1, key="nu_rf_custom")
+    nu_rf_custom = st.number_input("RF Frequency (MHz):", -100.0, 100.0, 2.0, 0.1, key="nu_rf_custom", format="%.4f")
     include_decoherence = st.checkbox("Include Decoherence", value=False, key="decoherence_checkbox")
     # Also show the checkbox in tab3
     show_bloch_spheres = st.checkbox("Show Bloch Spheres", value=False, key="time_evolution_bloch_spheres_tab")
@@ -936,7 +940,7 @@ if selected_tab == "Interactive Energy Levels":
         A_hf_value = st.slider(
             "Hyperfine Coupling (MHz)", 
             min_value=0.0, 
-            max_value=2.0, 
+            max_value=50.0, 
             value=DEFAULT_VALUES['A_hf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('A_hf_value', DEFAULT_VALUES['A_hf']),
             step=0.5,
             key='A_hf_value'
@@ -945,7 +949,7 @@ if selected_tab == "Interactive Energy Levels":
         J_dd_value = st.slider(
             "Dipole-Dipole Coupling (MHz)", 
             min_value=0.0, 
-            max_value=2.0, 
+            max_value=50.0, 
             value=DEFAULT_VALUES['J_dd'] if st.session_state.get('reset_sliders', False) else st.session_state.get('J_dd_value', DEFAULT_VALUES['J_dd']),
             step=0.5,
             key='J_dd_value'
@@ -965,7 +969,7 @@ if selected_tab == "Interactive Energy Levels":
         gamma_n_value = st.slider(
             "Nuclear Gyromagnetic Ratio (MHz/T)", 
             min_value=0.0, 
-            max_value=2.0, 
+            max_value=50.0, 
             value=DEFAULT_VALUES['gamma_n'] if st.session_state.get('reset_sliders', False) else st.session_state.get('gamma_n_value', DEFAULT_VALUES['gamma_n']),
             step=0.5,
             key='gamma_n_value'
@@ -974,7 +978,7 @@ if selected_tab == "Interactive Energy Levels":
         nu_rf_value = st.slider(
             "RF Frequency (MHz)", 
             min_value=0.0, 
-            max_value=2.0, 
+            max_value=50.0, 
             value=DEFAULT_VALUES['nu_rf'] if st.session_state.get('reset_sliders', False) else st.session_state.get('nu_rf_value', DEFAULT_VALUES['nu_rf']),
             step=0.5,
             key='nu_rf_value'
