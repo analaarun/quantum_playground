@@ -290,6 +290,9 @@ def evolve_and_plot_time_dep(
 
     # Simulate time evolution
     if obs is not None:
+        import plotly.graph_objects as go
+        import plotly.express as px
+
         if observable_name == "electron_nuclei":
             result = simulate_time_evolution(H, psi0, times, obs, args, include_decoherence, collapse_ops)
             exp_vals_list = result.expect  # List of expectation values for each observable
@@ -416,8 +419,8 @@ def evolve_and_plot_time_dep(
                             "args": [
                                 [f"frame{i}"],
                                 {"frame": {"duration": 50, "redraw": True},
-                                 "mode": "immediate",
-                                 "transition": {"duration": 50}}
+                                "mode": "immediate",
+                                "transition": {"duration": 50}}
                             ],
                             "label": f"{t:.1f}",
                             "method": "animate"
@@ -425,6 +428,97 @@ def evolve_and_plot_time_dep(
                     ]
                 }]
             )
+
+            # ------------------------------------------------------
+            # Check for full polarization transfer if enabled
+            # ------------------------------------------------------
+            highlight_times = []
+            highlight_values = []
+
+            if st.session_state.check_spin_transfer:
+                electron_sz = exp_vals_list[0]
+                nuclear_sz_list = exp_vals_list[1:]
+                num_nuclei = len(nuclear_sz_list)
+                # print(f"magnitude_threshold: {st.session_state.magnitude_threshold}")
+                for t_idx, t in enumerate(times):
+                    # 1) Check if electron Sz magnitude meets threshold
+                    
+                    if abs(electron_sz[t_idx]) >= st.session_state.magnitude_threshold:
+                        # print(f"electron_sz[t_idx]: {electron_sz[t_idx]}")
+                        # 2) Expectation for each nucleus is -electron_sz / num_nuclei
+                        #    We check if each nucleus is close to this within anti_correlation_threshold
+                        expected_nuclear_sz = electron_sz[t_idx] / num_nuclei
+                        
+                        all_nuclei_match = True
+                        for nuc_data in nuclear_sz_list:
+                            # Condition: abs(nuc_data[t_idx] - expected_nuclear_sz) <= threshold
+                            if abs(nuc_data[t_idx] + expected_nuclear_sz) > st.session_state.anti_correlation_threshold:
+                                all_nuclei_match = False
+                                break
+                        
+                        if all_nuclei_match:
+                            highlight_times.append(t)
+                            highlight_values.append({
+                                'electron': electron_sz[t_idx],
+                                'nuclei': [sz[t_idx] for sz in nuclear_sz_list]
+                            })
+
+            # ------------------------------------------------------
+            # Add vertical lines (via Scatter) for polarization transfer
+            # ------------------------------------------------------
+            # print(f"highlight_times: {highlight_times}")
+            # print(f"highlight_values: {highlight_values}")
+            if highlight_times and st.session_state.check_spin_transfer:
+                # A dummy trace just for the legend
+                fig.add_trace(
+                    go.Scatter(
+                        x=[None],
+                        y=[None],
+                        mode='lines',
+                        line=dict(color='blue', width=3),
+                        name='Spin Transfer Points',
+                        showlegend=True
+                    )
+                )
+                
+                # For each highlight time, draw a vertical line that spans
+                # from min Sz to max Sz among electron + all nuclei
+                for t, vals in zip(highlight_times, highlight_values):
+                    all_spins = [vals['electron']] + vals['nuclei']
+                    min_val = min(all_spins)
+                    max_val = max(all_spins)
+                    
+                    # Calculate expected nuclear value
+                    expected_nuclear_sz = vals['electron'] / len(vals['nuclei'])
+                    
+                    # Build a hover string with all values
+                    hover_text = (
+                        f"Time: {t:.2f}<br>"
+                        f"Electron Sz: {vals['electron']:.3f}"
+                    )
+                    for i, nuc_val in enumerate(vals['nuclei']):
+                        # Calculate absolute difference
+                        diff = abs(nuc_val + expected_nuclear_sz)
+                        hover_text += (
+                            f"<br>Nucleus {i+1} Sz: {nuc_val:.3f} "
+                            f"(Δ : {diff:.3f})"
+                        )
+                    
+                    # Create a vertical line from min_val to max_val
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[t, t],
+                            y=[min_val, max_val],
+                            mode='lines',
+                            line=dict(color='blue', width=3),
+                            name='Polarization Transfer',
+                            hovertemplate=hover_text,
+                            showlegend=False  # We already have a legend entry
+                        )
+                    )
+
+            # fig.show()
+
 
         elif observable_name == "multi_view":
             result = simulate_time_evolution(H, psi0, times, obs, args, include_decoherence, collapse_ops)
@@ -724,9 +818,17 @@ with st.expander("Hamiltonian of the Quantum Dot System", expanded=False):
     H_{hf}^{(i)} & \quad \text{Hyperfine interaction between nucleus } i \text{ and electron}
     \end{aligned}
     """)
+    
+ # Add new inputs for thresholds
+if 'magnitude_threshold' not in st.session_state:
+    st.session_state.magnitude_threshold = 0.3
+if 'anti_correlation_threshold' not in st.session_state:
+    st.session_state.anti_correlation_threshold = 0.010
+if 'check_spin_transfer' not in st.session_state:
+    st.session_state.check_spin_transfer = False
 
 with st.expander("Parameter Settings", expanded=True):
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
         st.subheader("Global Parameters")
@@ -800,13 +902,38 @@ with st.expander("Parameter Settings", expanded=True):
     with col3:
         st.subheader("Electron Parameters")
         st.session_state.gamma_e = st.session_state.get('gamma_e', 28.0)
-        st.session_state.gamma_e = st.number_input("γ_e gyromagnetic ratio (MHz/T):", 0.0, 100.0, st.session_state.gamma_e, 0.0001, format="%.4f")
-        include_decoherence = st.checkbox("Include Decoherence", value=False, key="decoherence_checkbox")
-        gamma_relax_e = st.number_input("Electron Relaxation Rate (MHz)", 0.0, 10.0, 0.0, 0.1, key="gamma_relax")
-        gamma_dephase_e = st.number_input("Electron Dephasing Rate (MHz)", 0.0, 10.0, 0.0, 0.1, key="gamma_dephase")
+        st.session_state.gamma_e = st.number_input(
+            "γ_e gyromagnetic ratio (MHz/T):", 
+            0.0, 
+            100.0, 
+            st.session_state.gamma_e, 
+            0.0001, 
+            format="%.4f"
+        )
+        include_decoherence = st.checkbox(
+            "Include Decoherence", 
+            value=False, 
+            key="decoherence_checkbox"
+        )
+        gamma_relax_e = st.number_input(
+            "Electron Relaxation Rate (MHz)", 
+            0.0, 
+            10.0, 
+            0.0, 
+            0.1, 
+            key="gamma_relax"
+        )
+        gamma_dephase_e = st.number_input(
+            "Electron Dephasing Rate (MHz)", 
+            0.0, 
+            10.0, 
+            0.0, 
+            0.1, 
+            key="gamma_dephase"
+        )
 
     with col4:
-        st.subheader("Time Evolution Settings")
+        st.subheader("Evolution Settings")
         state_index = st.number_input(
             "Initial State Index (dimensionless)",
             min_value=0.0,
@@ -817,19 +944,71 @@ with st.expander("Parameter Settings", expanded=True):
         )
         observable_name = st.selectbox(
             "Observable Name:", 
-            ["multi_view", "electron_nuclei", "electron_only", "system"] + 
+            ["electron_nuclei", "multi_view", "electron_only", "system"] + 
             [f"nuclear_{i+1}" for i in range(st.session_state.num_nuclei)], 
             index=0,
             key="observable_custom_evolution_1",
             on_change=lambda: setattr(st.session_state, 'observable_name', st.session_state.observable_custom_evolution_1)
         )
-        t_max = st.number_input("Total Time (arbitrary units):", 1.0, 1000.0, 10.0, 1.0, key="t_max_custom")
-        num_steps = st.number_input("Number of Time Steps (dimensionless):", 10, 1000, 200, 10, key="num_steps_custom")
-        
-        times_for_bloch = st.text_input("Times for Bloch Spheres (comma-separated):", "0, 5, 10", key="times_bloch_custom")
+        t_max = st.number_input(
+            "Total Time (arbitrary units):", 
+            1.0, 
+            1000.0, 
+            10.0, 
+            1.0, 
+            key="t_max_custom"
+        )
+        num_steps = st.number_input(
+            "Number of Time Steps (dimensionless):", 
+            10, 
+            1000, 
+            200, 
+            10, 
+            key="num_steps_custom"
+        )
+
+    with col5:
+        st.subheader("Additional Settings")
+        times_for_bloch = st.text_input(
+            "Times for Bloch Spheres (comma-separated):", 
+            "0, 5, 10", 
+            key="times_bloch_custom"
+        )
         times_for_bloch = [float(t) for t in times_for_bloch.split(",")]
-        nu_rf_custom = st.number_input("RF Frequency (MHz):", -100.0, 100.0, 2.0, 0.1, key="nu_rf_custom", format="%.4f")
-        show_bloch_spheres = st.checkbox("Show Bloch Spheres", value=False, key="time_evolution_bloch_spheres_tab")
+        nu_rf_custom = st.number_input(
+            "RF Frequency (MHz):", 
+            -100.0, 
+            100.0, 
+            2.0, 
+            0.1, 
+            key="nu_rf_custom", 
+            format="%.4f"
+        )
+        st.session_state.magnitude_threshold = st.number_input(
+            "Magnitude Threshold",
+            min_value=0.0,
+            max_value=10.0,
+            value=st.session_state.magnitude_threshold,
+            step=0.1,
+            format="%.3f"
+        )
+        st.session_state.anti_correlation_threshold = st.number_input(
+            "Anti-correlation Threshold",
+            min_value=0.0,
+            max_value=1.0,
+            value=st.session_state.anti_correlation_threshold,
+            step=0.001,
+            format="%.3f"
+        )
+        st.session_state.check_spin_transfer = st.checkbox(
+            "Check for Spin Transfer",
+            value=st.session_state.check_spin_transfer
+        )
+        show_bloch_spheres = st.checkbox(
+            "Show Bloch Spheres", 
+            value=False, 
+            key="time_evolution_bloch_spheres_tab"
+        )
 
     
 
